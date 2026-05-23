@@ -3,6 +3,14 @@
 This reference document organizes and structures the mock data and policy specifications found in `train-mock-data/` (excluding `readme.md`) to assist in reviewing and planning upcoming features, such as adding cash payment options to the Metro system.
 
 ---
+> [!TIP] 
+**可新增政策**
+> - 失物招領
+> - 禁帶物品
+> - 禁菸
+> - 罰款政策
+> - 詳情參照英國鐵路規定 National Rail & London Underground
+---
 
 ## 🗺️ System Overview & File Structure
 
