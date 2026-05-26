@@ -53,6 +53,94 @@ TransitFlow is a Python-based AI chat assistant for a fictional transit operator
 ```sql
 -- TODO: paste your final schema.sql contents here after team review
 ```
+### 第一層：獨立基礎層 (沒有外鍵，最先畫)
+
+#### 1. Users (使用者)
+- `user_id` (PK, VARCHAR) - 主鍵
+- `email` (VARCHAR, UNIQUE, NOT NULL)
+- `password_hash` (VARCHAR, NOT NULL)
+- `first_name` (VARCHAR, NOT NULL)
+- `surname` (VARCHAR, NOT NULL)
+- `year_of_birth` (INT, NOT NULL) - [限制：需大於 1900]
+- `membership_level` (VARCHAR) - (我們新增的亮點)
+- `loyalty_points` (INT) - (我們新增的亮點)
+
+#### 2. Stations (車站)
+- `station_id` (PK, VARCHAR) - 主鍵
+- `station_name` (VARCHAR, NOT NULL)
+- `network_type` (VARCHAR, NOT NULL) - [限制：只能是 'metro' 或 'national_rail'，我們新增的區分欄位]
+
+---
+
+### 第二層：核心設施層 (依賴基礎層)
+
+#### 3. Schedules (車次班表)
+- `schedule_id` (PK, VARCHAR) - 主鍵
+- `origin_station_id` (FK, VARCHAR, NOT NULL) - 連向 Stations
+- `destination_station_id` (FK, VARCHAR, NOT NULL) - 連向 Stations
+- `departure_time` (TIME, NOT NULL)
+- `arrival_time` (TIME, NOT NULL)
+- `delay_minutes` (INT) - (我們新增的亮點)
+- `status` (VARCHAR) - (我們新增的亮點)
+
+#### 4. Seat Layouts (國鐵座位配置)
+- `layout_id` (PK, VARCHAR) - 主鍵 (或是用複合主鍵)
+- `schedule_id` (FK, VARCHAR, NOT NULL) - 連向 Schedules
+- `coach` (VARCHAR, NOT NULL)
+- `seat_id` (VARCHAR, NOT NULL)
+- `fare_class` (VARCHAR, NOT NULL)
+
+---
+
+### 第三層：業務交易層 (依賴前兩層)
+
+#### 5. Bookings (國鐵預約訂單)
+- `booking_id` (PK, VARCHAR) - 主鍵
+- `user_id` (FK, VARCHAR, NOT NULL) - 連向 Users
+- `schedule_id` (FK, VARCHAR, NOT NULL) - 連向 Schedules
+- `origin_station_id` (FK, VARCHAR, NOT NULL) - 連向 Stations
+- `destination_station_id` (FK, VARCHAR, NOT NULL) - 連向 Stations
+- `travel_date` (DATE, NOT NULL)
+- `ticket_type` (VARCHAR, NOT NULL)
+- `fare_class` (VARCHAR, NOT NULL)
+- `coach` (VARCHAR)
+- `seat_id` (VARCHAR)
+- `stops_travelled` (INT, NOT NULL)
+- `amount_usd` (DECIMAL, NOT NULL)
+- `status` (VARCHAR, NOT NULL)
+- `booked_at` (TIMESTAMPTZ, NOT NULL)
+- `travelled_at` (TIMESTAMPTZ) - [可為空 (NULL)，因為還沒搭車]
+
+#### 6. Trips (捷運乘車紀錄)
+- `trip_id` (PK, VARCHAR) - 主鍵
+- `user_id` (FK, VARCHAR, NOT NULL) - 連向 Users
+- `tap_in_station_id` (FK, VARCHAR, NOT NULL) - 連向 Stations
+- `tap_out_station_id` (FK, VARCHAR) - 連向 Stations [進站時還沒有出站紀錄，所以可為空]
+- `tap_in_time` (TIMESTAMPTZ, NOT NULL)
+- `tap_out_time` (TIMESTAMPTZ)
+- `fare_usd` (DECIMAL)
+
+---
+
+### 第四層：後續互動層 (收尾)
+
+#### 7. Payments (付款紀錄)
+- `payment_id` (PK, VARCHAR) - 主鍵
+- `booking_id` (FK, VARCHAR) - 連向 Bookings [如果是國鐵訂單就有值]
+- `trip_id` (FK, VARCHAR) - 連向 Trips [如果是捷運搭乘就有值]
+- `amount` (DECIMAL, NOT NULL)
+- `payment_method` (VARCHAR, NOT NULL)
+- `payment_status` (VARCHAR, NOT NULL)
+- `paid_at` (TIMESTAMPTZ, NOT NULL)
+
+#### 8. Feedback (意見回饋)
+- `feedback_id` (PK, VARCHAR) - 主鍵
+- `user_id` (FK, VARCHAR, NOT NULL) - 連向 Users
+- `booking_id` (FK, VARCHAR) - 連向 Bookings (選填，看是對哪筆訂單留評價)
+- `trip_id` (FK, VARCHAR) - 連向 Trips (選填，看是對哪趟捷運留評價)
+- `rating` (INT, NOT NULL) - [限制：1 到 5 分]
+- `comments` (TEXT)
+- `submitted_at` (TIMESTAMPTZ, NOT NULL)
 
 ## Agreed Graph Schema
 
