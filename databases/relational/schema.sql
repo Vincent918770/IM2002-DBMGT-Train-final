@@ -40,7 +40,7 @@ CREATE TABLE IF NOT EXISTS users (
     registered_at TIMESTAMP,
     is_active BOOLEAN
 );
-
+--缺interchange_metro_lines、adjacent_stations
 CREATE TABLE IF NOT EXISTS metro_stations (
     station_id VARCHAR(10) PRIMARY KEY,
     name VARCHAR(100) NOT NULL,
@@ -49,7 +49,7 @@ CREATE TABLE IF NOT EXISTS metro_stations (
     interchange_national_rail_station_id VARCHAR(10),
     lines TEXT[]
 );
-
+--缺interchange_national_rail_lines、adjacent_stations
 CREATE TABLE IF NOT EXISTS national_rail_stations (
     station_id VARCHAR(10) PRIMARY KEY,
     name VARCHAR(100) NOT NULL,
@@ -58,7 +58,8 @@ CREATE TABLE IF NOT EXISTS national_rail_stations (
     interchange_metro_station_id VARCHAR(10),
     lines TEXT[]
 );
-
+--travel_time_from_origin_min寫於metro_schedule_stops--Question
+--stops_in_order寫於metro_schedule_stops
 CREATE TABLE IF NOT EXISTS metro_schedules (
     schedule_id VARCHAR(20) PRIMARY KEY,
     line VARCHAR(10),
@@ -72,7 +73,7 @@ CREATE TABLE IF NOT EXISTS metro_schedules (
     frequency_min INT,
     operates_on TEXT[]
 );
-
+--checked name
 CREATE TABLE IF NOT EXISTS metro_schedule_stops (
     schedule_id VARCHAR(20) REFERENCES metro_schedules(schedule_id),
     station_id VARCHAR(10) REFERENCES metro_stations(station_id),
@@ -80,7 +81,9 @@ CREATE TABLE IF NOT EXISTS metro_schedule_stops (
     travel_time_from_origin_min INT,
     PRIMARY KEY (schedule_id, station_id)
 );
-
+--stops_in_order寫於national_rail_schedule_stops(stop_order  不確定是否同)
+--travel_time_from_origin_min寫於national_rail_schedule_stops
+--fare_classes寫於national_rail_fares
 CREATE TABLE IF NOT EXISTS national_rail_schedules (
     schedule_id VARCHAR(20) PRIMARY KEY,
     line VARCHAR(10),
@@ -94,6 +97,8 @@ CREATE TABLE IF NOT EXISTS national_rail_schedules (
     operates_on TEXT[]
 );
 
+-- 多is_passed_through
+
 CREATE TABLE IF NOT EXISTS national_rail_schedule_stops (
     schedule_id VARCHAR(20) REFERENCES national_rail_schedules(schedule_id),
     station_id VARCHAR(10) REFERENCES national_rail_stations(station_id),
@@ -103,6 +108,7 @@ CREATE TABLE IF NOT EXISTS national_rail_schedule_stops (
     PRIMARY KEY (schedule_id, station_id)
 );
 
+-- base_fare_usd、per_stop_rate_usd為原多值屬性拆
 CREATE TABLE IF NOT EXISTS national_rail_fares (
     schedule_id VARCHAR(20) REFERENCES national_rail_schedules(schedule_id),
     fare_class VARCHAR(20),
@@ -131,6 +137,7 @@ CREATE TABLE IF NOT EXISTS national_rail_seats (
     PRIMARY KEY (seat_id, coach_id)
 );
 
+--checked name
 CREATE TABLE IF NOT EXISTS national_rail_bookings (
     booking_id VARCHAR(20) PRIMARY KEY,
     user_id VARCHAR(50) REFERENCES users(user_id),
@@ -166,6 +173,7 @@ CREATE TABLE IF NOT EXISTS metro_travel_history (
     travelled_at TIMESTAMP
 );
 
+--checked name
 CREATE TABLE IF NOT EXISTS payments (
     payment_id VARCHAR(20) PRIMARY KEY,
     booking_id VARCHAR(20),
@@ -183,6 +191,7 @@ CREATE TABLE IF NOT EXISTS feedback (
     comment TEXT,
     submitted_at TIMESTAMP
 );
+
 
 -- ============================================================
 --  VECTOR SCHEMA  (RAG / Help Desk) — do not modify
