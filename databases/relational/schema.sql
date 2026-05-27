@@ -32,15 +32,62 @@ CREATE TABLE IF NOT EXISTS users (
     user_id VARCHAR(50) PRIMARY KEY,
     full_name VARCHAR(100) NOT NULL,
     email VARCHAR(100) UNIQUE NOT NULL,
-    password VARCHAR(255) NOT NULL,
     phone VARCHAR(20),
     date_of_birth DATE,
-    secret_question VARCHAR(255),
-    secret_answer VARCHAR(255),
     registered_at TIMESTAMP,
     is_active BOOLEAN
 );
+--把password等敏感資訊獨立成一個表，並設置user_id為外鍵參照users表，並在users表刪除時級聯刪除users_confidential表中的相關記錄，以增強數據安全性和隱私保護。
+CREATE TABLE IF NOT EXISTS users_confidential (
+    user_id VARCHAR(50) PRIMARY KEY REFERENCES users(user_id) ON DELETE CASCADE,
+    password VARCHAR(255) NOT NULL,
+    secret_question VARCHAR(255),
+    secret_answer VARCHAR(255)
+);
 --缺interchange_metro_lines、adjacent_stations
+-- =========================================================================
+-- [ 關於「轉乘路線欄位 (interchange_lines)」的刪除與架構修正說明 ]
+--
+-- 說明：
+-- 本表原本預計配合原始 JSON 開設 `interchange_national_rail_lines` 或 `interchange_metro_lines`
+-- 等文字陣列欄位 (TEXT[]) 來儲存該站可轉乘的路線詳細清單。
+-- 但經團隊架構評估後，我已將此類欄位「完全移除」，原因與補救機制如下：
+--
+-- 1. 為什麼刪除？ (避免資料冗餘與 SQL 第一正規化衝突)
+--    - 資料重疊：在原始 JSON 中，如果古亭站是轉乘站，它的 `lines` 欄位是 ["M1", "M2"]，
+--      `interchange_metro_lines` 也是 ["M1", "M2"]，這在關聯式資料庫中造成嚴重的資料重複儲存。
+--    - 職責分離：更重要的是，我們專案已經引入了專門處理路網圖、轉乘點拓樸的 Neo4j！
+--      「哪一站可以轉乘哪幾條線」這種複雜的圖形關係，正是 Neo4j 的核心強項。
+--
+-- 2. 我們如何彌補這項功能？ (PostgreSQL 輕量化標籤 + Neo4j 圖形查詢)
+--    - 【PostgreSQL 端 (我這邊)】：我保留了 `is_interchange_metro` 與 `is_interchange_national_rail` 
+--      這兩個超輕量的布林值 (BOOLEAN) 標籤。
+--      Python 後端如果只需要知道「這一站『是不是』轉乘站」（例如前端 UI 要畫轉乘 icon），
+--      直接查這兩個布林值即可，速度極快，不用去解析複雜的陣列。
+--    - 【Neo4j 端 (負責圖資料庫的人)】：當使用者需要查詢「具體能轉乘哪些線、如何轉乘最快」時，
+--      後端程式會直接向 Neo4j 發送 Cypher 查詢。Neo4j 會透過節點與關係，
+--      動態且完美地計算出所有轉乘路線。
+--
+-- 📌 結論 (Carol 寫 Seed 腳本請注意)：
+--    下週編寫 `seed_postgres.py` 時，遇到 JSON 裡的 `interchange_xxx_lines` 欄位請直接忽略，
+--    只需要把 `is_interchange_xxx` 的 true/false 塞進來即可！
+--    完整的轉乘路線資料，將由負責 Neo4j 的夥伴透過 `seed.cypher` 完整倒進圖資料庫中。
+-- =========================================================================
+-- =========================================================================
+-- [ 關於「相鄰車站與行車時間資料 (adjacent_stations)」的刪除與架構修正說明 ]
+-- 關於原始 JSON 中的 "adjacent_stations" (相鄰車站與行車時間資料)：
+-- 1. 關聯式資料庫限制：若在 PostgreSQL 硬存這種複雜的「物件陣列」結構，會嚴重違反 1NF 
+--    (第一正規化)，導致後續 SQL 查詢必須使用極具災難性的字串解析，拉低系統效能。
+--
+-- 2. 多資料庫並存策略 (Polyglot Persistence)：
+--    依據專案 README 規範，我們系統引入了天生擅長處理網路拓樸與地圖路網的 Neo4j。
+--    因此，「車站連線、轉乘、最短行車時間」等圖形邏輯，在 PostgreSQL 中「刻意省略不存」。
+--
+-- 📌 團隊分工結論：
+--    - PostgreSQL (我這邊)：專注管好使用者、金流、訂單、時刻表等需要嚴謹記帳的資料。
+--    - Neo4j (負責 Neo4j 的人)：請在匯入資料 (Seed) 與編寫 Cypher 語法時，
+--      直接將 JSON 中的 adjacent_stations 解析並建立為 Graph 中的 Relationships (連線與權重)。
+-- =========================================================================
 CREATE TABLE IF NOT EXISTS metro_stations (
     station_id VARCHAR(10) PRIMARY KEY,
     name VARCHAR(100) NOT NULL,
@@ -50,6 +97,49 @@ CREATE TABLE IF NOT EXISTS metro_stations (
     lines TEXT[]
 );
 --缺interchange_national_rail_lines、adjacent_stations
+-- =========================================================================
+-- [ 關於「轉乘路線欄位 (interchange_lines)」的刪除與架構修正說明 ]
+--
+-- 說明：
+-- 本表原本預計配合原始 JSON 開設 `interchange_national_rail_lines` 或 `interchange_metro_lines`
+-- 等文字陣列欄位 (TEXT[]) 來儲存該站可轉乘的路線詳細清單。
+-- 但經團隊架構評估後，我已將此類欄位「完全移除」，原因與補救機制如下：
+--
+-- 1. 為什麼刪除？ (避免資料冗餘與 SQL 第一正規化衝突)
+--    - 資料重疊：在原始 JSON 中，如果古亭站是轉乘站，它的 `lines` 欄位是 ["M1", "M2"]，
+--      `interchange_metro_lines` 也是 ["M1", "M2"]，這在關聯式資料庫中造成嚴重的資料重複儲存。
+--    - 職責分離：更重要的是，我們專案已經引入了專門處理路網圖、轉乘點拓樸的 Neo4j！
+--      「哪一站可以轉乘哪幾條線」這種複雜的圖形關係，正是 Neo4j 的核心強項。
+--
+-- 2. 我們如何彌補這項功能？ (PostgreSQL 輕量化標籤 + Neo4j 圖形查詢)
+--    - 【PostgreSQL 端 (我這邊)】：我保留了 `is_interchange_metro` 與 `is_interchange_national_rail` 
+--      這兩個超輕量的布林值 (BOOLEAN) 標籤。
+--      Python 後端如果只需要知道「這一站『是不是』轉乘站」（例如前端 UI 要畫轉乘 icon），
+--      直接查這兩個布林值即可，速度極快，不用去解析複雜的陣列。
+--    - 【Neo4j 端 (負責圖資料庫的人)】：當使用者需要查詢「具體能轉乘哪些線、如何轉乘最快」時，
+--      後端程式會直接向 Neo4j 發送 Cypher 查詢。Neo4j 會透過節點與關係，
+--      動態且完美地計算出所有轉乘路線。
+--
+-- 📌 結論 (Carol 寫 Seed 腳本請注意)：
+--    下週編寫 `seed_postgres.py` 時，遇到 JSON 裡的 `interchange_xxx_lines` 欄位請直接忽略，
+--    只需要把 `is_interchange_xxx` 的 true/false 塞進來即可！
+--    完整的轉乘路線資料，將由負責 Neo4j 的夥伴透過 `seed.cypher` 完整倒進圖資料庫中。
+-- =========================================================================
+-- =========================================================================
+-- [ 關於「相鄰車站與行車時間資料 (adjacent_stations)」的刪除與架構修正說明 ]
+-- 關於原始 JSON 中的 "adjacent_stations" (相鄰車站與行車時間資料)：
+-- 1. 關聯式資料庫限制：若在 PostgreSQL 硬存這種複雜的「物件陣列」結構，會嚴重違反 1NF 
+--    (第一正規化)，導致後續 SQL 查詢必須使用極具災難性的字串解析，拉低系統效能。
+--
+-- 2. 多資料庫並存策略 (Polyglot Persistence)：
+--    依據專案 README 規範，我們系統引入了天生擅長處理網路拓樸與地圖路網的 Neo4j。
+--    因此，「車站連線、轉乘、最短行車時間」等圖形邏輯，在 PostgreSQL 中「刻意省略不存」。
+--
+-- 📌 團隊分工結論：
+--    - PostgreSQL (我這邊)：專注管好使用者、金流、訂單、時刻表等需要嚴謹記帳的資料。
+--    - Neo4j (負責 Neo4j 的人)：請在匯入資料 (Seed) 與編寫 Cypher 語法時，
+--      直接將 JSON 中的 adjacent_stations 解析並建立為 Graph 中的 Relationships (連線與權重)。
+-- =========================================================================
 CREATE TABLE IF NOT EXISTS national_rail_stations (
     station_id VARCHAR(10) PRIMARY KEY,
     name VARCHAR(100) NOT NULL,
