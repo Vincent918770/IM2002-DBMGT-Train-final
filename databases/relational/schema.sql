@@ -37,6 +37,7 @@ CREATE TABLE IF NOT EXISTS users (
     registered_at TIMESTAMP,
     is_active BOOLEAN
 );
+
 --把password等敏感資訊獨立成一個表，並設置user_id為外鍵參照users表，並在users表刪除時級聯刪除users_confidential表中的相關記錄，以增強數據安全性和隱私保護。
 CREATE TABLE IF NOT EXISTS users_confidential (
     user_id VARCHAR(50) PRIMARY KEY REFERENCES users(user_id) ON DELETE CASCADE,
@@ -44,6 +45,7 @@ CREATE TABLE IF NOT EXISTS users_confidential (
     secret_question VARCHAR(255),
     secret_answer VARCHAR(255)
 );
+
 --缺interchange_metro_lines、adjacent_stations
 -- =========================================================================
 -- [ 關於「轉乘路線欄位 (interchange_lines)」的刪除與架構修正說明 ]
@@ -68,7 +70,7 @@ CREATE TABLE IF NOT EXISTS users_confidential (
 --      後端程式會直接向 Neo4j 發送 Cypher 查詢。Neo4j 會透過節點與關係，
 --      動態且完美地計算出所有轉乘路線。
 --
--- 📌 結論 (Carol 寫 Seed 腳本請注意)：
+-- 📌 結論 (賴韋衡 寫 Seed 腳本請注意)：
 --    下週編寫 `seed_postgres.py` 時，遇到 JSON 裡的 `interchange_xxx_lines` 欄位請直接忽略，
 --    只需要把 `is_interchange_xxx` 的 true/false 塞進來即可！
 --    完整的轉乘路線資料，將由負責 Neo4j 的夥伴透過 `seed.cypher` 完整倒進圖資料庫中。
@@ -96,6 +98,7 @@ CREATE TABLE IF NOT EXISTS metro_stations (
     interchange_national_rail_station_id VARCHAR(10),
     lines TEXT[]
 );
+
 --缺interchange_national_rail_lines、adjacent_stations
 -- =========================================================================
 -- [ 關於「轉乘路線欄位 (interchange_lines)」的刪除與架構修正說明 ]
@@ -120,7 +123,7 @@ CREATE TABLE IF NOT EXISTS metro_stations (
 --      後端程式會直接向 Neo4j 發送 Cypher 查詢。Neo4j 會透過節點與關係，
 --      動態且完美地計算出所有轉乘路線。
 --
--- 📌 結論 (Carol 寫 Seed 腳本請注意)：
+-- 📌 結論 (賴韋衡 寫 Seed 腳本請注意)：
 --    下週編寫 `seed_postgres.py` 時，遇到 JSON 裡的 `interchange_xxx_lines` 欄位請直接忽略，
 --    只需要把 `is_interchange_xxx` 的 true/false 塞進來即可！
 --    完整的轉乘路線資料，將由負責 Neo4j 的夥伴透過 `seed.cypher` 完整倒進圖資料庫中。
@@ -148,8 +151,39 @@ CREATE TABLE IF NOT EXISTS national_rail_stations (
     interchange_metro_station_id VARCHAR(10),
     lines TEXT[]
 );
+
 --travel_time_from_origin_min寫於metro_schedule_stops--Question
 --stops_in_order寫於metro_schedule_stops
+-- =========================================================================
+-- [ 💡 關於「時刻表停靠站與行車時間 (stops_in_order & travel_time...)」的架構修正說明 ]
+--
+-- 說明：
+-- 原始 JSON 中的 `metro_schedules.json` 將所有的停靠站與行車時間包裝成橫向的陣列與物件結構。
+-- 但在關聯式資料庫中，為了符合第一正規化（1NF），我將這兩個屬性抽離，獨立設計了這張
+-- `metro_schedule_stops` (明細表)，將資料轉為縱向儲存。
+--
+-- 1. 為什麼要拆分成明細表？ (正規化與查詢效能)
+--    - 提升查詢效能 (避免大海撈針)：如果把所有站名擠在同一個陣列欄位裡，當後端要查詢
+--      「哪些車次有停靠某個車站」時，資料庫必須去逐行解析陣列，效能極差。拆分成明細表後，
+--      會變成極速的精準條件查詢 (WHERE station_id = '...')。
+--    - 確保資料正確性 (防呆機制)：拆成明細表後，我們能在 `station_id` 加上外鍵約束 (Foreign Key)。
+--      資料庫會在底層自動把關，保證塞進時刻表的每一站，都必須是車站總表裡真實存在的車站。
+--
+-- 2. 這兩個屬性是如何轉換的？與為什麼改名？
+--    - 原始 JSON 的 `stops_in_order` (複數名詞，代表一長串停靠站名單的陣列)
+--      👉 轉換成子表後，改名為單數的 `stop_order`。
+--      為什麼改名？因為在子表裡，每一行資料都只代表「單一個」停靠站。如果沿用複數的
+--      stops_in_order 會讓人誤以為裡面裝了一大串車站。改用單數的 stop_order 來表示
+--      「這是第幾站 (整數 1, 2, 3...)」，在 SQL 語意上才是最精準、不會讓人誤會的命名。
+--    - 原始 JSON 的 `travel_time_from_origin_min`
+--      👉 變成了子表的一般數值欄位，獨立記錄該單一站點到起點的行車時間。
+--
+-- 📌 結論 (賴韋衡 寫 Seed 腳本請注意)：
+--    編寫 `seed_postgres.py` 處理時刻表 JSON 時，需要進行「兩階段」資料表寫入：
+--    1. 主表寫入：先把車次、線路、方向、起終點、票價等基本資訊寫入 `metro_schedules` 表。
+--    2. 子表拆解：接著寫一個內部迴圈 (for loop)，將 JSON 裡的 `stops_in_order` 陣列拆解，
+--       將每一個車站與對應的時間同步配對，一站一行 (垂直列印) 寫入 `metro_schedule_stops` 表中喔！
+-- =========================================================================
 CREATE TABLE IF NOT EXISTS metro_schedules (
     schedule_id VARCHAR(20) PRIMARY KEY,
     line VARCHAR(10),
@@ -163,7 +197,9 @@ CREATE TABLE IF NOT EXISTS metro_schedules (
     frequency_min INT,
     operates_on TEXT[]
 );
+
 --checked name
+--在上方註解提及更名來由
 CREATE TABLE IF NOT EXISTS metro_schedule_stops (
     schedule_id VARCHAR(20) REFERENCES metro_schedules(schedule_id),
     station_id VARCHAR(10) REFERENCES metro_stations(station_id),
@@ -171,9 +207,36 @@ CREATE TABLE IF NOT EXISTS metro_schedule_stops (
     travel_time_from_origin_min INT,
     PRIMARY KEY (schedule_id, station_id)
 );
---stops_in_order寫於national_rail_schedule_stops(stop_order  不確定是否同)
+
+--stops_in_order寫於national_rail_schedule_stops(stop_order不確定是否相同)
 --travel_time_from_origin_min寫於national_rail_schedule_stops
+--在上方註解有提及來由
+--stop_order就是由原先stops_in_order更名而來，來由已於上方提及
+
 --fare_classes寫於national_rail_fares
+-- =========================================================================
+-- [ 關於「多種票價艙等 (fare_classes)」的架構修正說明 ]
+--
+-- 說明：
+-- 原始 JSON 的 `national_rail_schedules.json` 把不同艙等（如 standard, first）
+-- 的票價規則，全部包裝在一個名為 `fare_classes` 的物件中。
+-- 但在 PostgreSQL 中，我將它抽離出來，獨立設計成了 `national_rail_fares` (票價明細表)。
+--
+-- 1. 為什麼要抽離成獨立的價目表？ (擴充性與算錢效率)
+--    - 拒絕寫死欄位 (高擴充性)：如果我們在總表裡寫死 `standard_fare`、`first_fare` 
+--      等欄位，未來一旦要新增「商務艙」或「敬老票」，就必須修改整個資料表結構 (ALTER TABLE)。
+--      但獨立成價目表後，未來要新增任何票種，完全不用動搖資料庫架構，只要單純新增
+--      一行資料 (INSERT) 就好，擴充性無敵！
+--    - 算錢超快超精準：把票價獨立成表後，當使用者結帳時，後端程式只需要極為簡單的查詢：
+--      `WHERE schedule_id = '...' AND fare_class = 'standard'`
+--      一瞬間就能精準抓出該艙等的基本費跟每站費率，完全不需要耗費資源去解析 JSON 字串。
+--
+-- 📌 結論 (賴韋衡 寫 Seed 腳本請注意)：
+--    編寫 `seed_postgres.py` 時，處理台鐵時刻表的 JSON 同樣需要進行「兩次」寫入：
+--    1. 主表：先把車次、起終點等基本資訊寫入 `national_rail_schedules` 表。
+--    2. 子表：接著寫一個內部迴圈，將 `fare_classes` 裡面的每一個艙等 (standard, first)
+--       與它們對應的價錢，一筆一筆 (一種艙等一行) 獨立寫入 `national_rail_fares` 表中喔！
+-- =========================================================================
 CREATE TABLE IF NOT EXISTS national_rail_schedules (
     schedule_id VARCHAR(20) PRIMARY KEY,
     line VARCHAR(10),
@@ -188,7 +251,28 @@ CREATE TABLE IF NOT EXISTS national_rail_schedules (
 );
 
 -- 多is_passed_through
-
+-- =========================================================================
+-- [ 關於「過站不停 (is_passed_through)」的架構設計說明 ]
+--
+-- 說明：
+-- 在原始 `national_rail_schedules.json` 中，對於直達車 (Express Service)，
+-- 同時記錄了有停靠的 `stops_in_order` 以及過站不停的 `passed_through_stations` 兩個陣列。
+-- 為了將這兩種狀態完美融合進關聯式資料庫，我在 `national_rail_schedule_stops` 
+-- 明細表中加入了 `is_passed_through` 這個布林值 (BOOLEAN) 標籤。
+--
+-- 1. 為什麼要這樣設計？ (化繁為簡與系統實務)
+--    - 統一明細表 (單一真實來源)：我們不需要為「有停的站」和「沒停的站」開兩張不同的表。
+--      只要靠這個布林值，就能在一張表內完整重現一班列車完整的行駛軌跡。
+--    - 系統實務考量 (軌道佔用與安全)：即使火車「過站不停」，它依然佔用了該車站的軌道資源。
+--      未來若要擴充「行車調度防撞系統」或「車站列車通過廣播 (請勿靠近月台)」，後端只需
+--      查詢這張表，就能精準掌握列車駛過了哪些車站，不會因為沒停靠而失去追蹤。
+--
+-- 📌 結論 (賴韋衡 寫 Seed 腳本請注意)：
+--    編寫 `seed_postgres.py` 時，處理台鐵直達車的 JSON 請依以下邏輯寫入明細表：
+--    1. 處理 `stops_in_order` 陣列裡的車站時 👉 寫入資料，並將 `is_passed_through` 設為 `false`。
+--    2. 處理 `passed_through_stations` 陣列的車站時 👉 寫入資料，並將 `is_passed_through` 設為 `true`。
+--    （註：對於一般區間車 Normal Service，因為沒有過站不停的車站，只要單純處理第一點即可）
+-- =========================================================================
 CREATE TABLE IF NOT EXISTS national_rail_schedule_stops (
     schedule_id VARCHAR(20) REFERENCES national_rail_schedules(schedule_id),
     station_id VARCHAR(10) REFERENCES national_rail_stations(station_id),
@@ -199,6 +283,32 @@ CREATE TABLE IF NOT EXISTS national_rail_schedule_stops (
 );
 
 -- base_fare_usd、per_stop_rate_usd為原多值屬性拆
+-- =========================================================================
+-- [ 關於「票價費率 (base_fare_usd & per_stop_rate_usd)」的正規化拆分解釋 ]
+--
+-- 說明：
+-- 在原始的 JSON 結構中，`fare_classes` 是一個包含了多種艙等與對應費率的
+-- 「多值且複合的屬性 (Multi-valued & Composite Attribute)」。
+-- 為了讓資料庫符合「第一正規化 (1NF)」，我將裡面的基本費與每站費率拆解出來，
+-- 移到了全新的 `national_rail_fares` 票價明細表中。
+--
+-- 1. 為什麼要拆解多值屬性？ (符合 1NF 與確保資料原子性)
+--    - 確保原子性 (Atomicity)：關聯式資料庫的每一個格子只能裝「一個單一的純數值」。
+--      如果我們把整包 JSON 物件硬塞在總表裡，就會違反 1NF。透過建立明細表，
+--      我們將原本水平發展的 JSON 物件，轉換成了「垂直發展的資料列 (Rows)」。
+--    - 靈活的查詢與運算：拆解成 `base_fare_usd` (基本費) 與 `per_stop_rate_usd` (每站費率) 
+--      這兩個獨立的數值 (NUMERIC) 欄位後，後端程式可以直接利用 SQL 進行數學運算
+--      (例如：`base_fare_usd + (stops * per_stop_rate_usd)`)，效率極高且不會出錯。
+--
+-- 2. 欄位的對應關係：
+--    - 原始 JSON 中 "standard" 或 "first" 的鍵名 (Key) 👉 變成 `fare_class` 欄位。
+--    - 原始 JSON 中對應的兩個數字 👉 原封不動成為 `base_fare_usd` 與 `per_stop_rate_usd`。
+--
+-- 📌 結論 (賴韋衡 寫 Seed 腳本請注意)：
+--    這張表的主鍵 (Primary Key) 是 `(schedule_id, fare_class)` 兩個欄位的組合。
+--    寫入資料時，請解析 JSON 的字典結構 (Dictionary)，針對每一個艙等，
+--    將車次 ID、艙等名稱、基本費、每站費率這四個值，組成一筆資料寫進這張表裡！
+-- =========================================================================
 CREATE TABLE IF NOT EXISTS national_rail_fares (
     schedule_id VARCHAR(20) REFERENCES national_rail_schedules(schedule_id),
     fare_class VARCHAR(20),
