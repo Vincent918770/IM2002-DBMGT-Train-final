@@ -28,6 +28,35 @@
 --    docker-compose down -v && docker-compose up -d
 -- ============================================================
 
+--secret_answer、secret_question、password
+-- =========================================================================
+-- [ 關於密碼與敏感資訊 (users_confidential)的設計]
+--
+-- 說明：
+-- 為了達成老師要求的資訊分離(user_id&password分離)的 best practice，我們將密碼、
+-- 安全問題與答案獨立拆分為專門的 `users_confidential` 關聯表。
+--
+-- 1. 為什麼要拆？ (資安與隱私保護)
+--    - 最小權限原則 (Principle of Least Privilege)：在實際的系統管理中，
+--      我們只允許系統管理員 (Admin) 存取包含密碼的詳細資料。而一般員工 (Staff) 或
+--      一般使用者 (User) 則被設計為只能看到 `users` 表（姓名、Email、註冊狀態），
+--      無法接觸到 `users_confidential` 表。
+--    - 資安事件最小化 (Minimizing Blast Radius)：一旦發生資安事件 (如資料外洩)，
+--      能竊取的敏感資料範圍會被限制。
+--
+-- 2. 欄位與關係：
+--    - 透過 `user_id` 作為 Primary Key (主鍵) 與 Foreign Key (外鍵) 的組合，
+--      達成一對一的嚴格綁定。
+--
+-- 結論 (賴韋衡 寫 Seed 腳本請注意)：
+--    在編寫 `seed_postgres.py` 建立資料時，請注意：
+--    - 當要新增使用者時，必須同時在 `users` 表與 `users_confidential` 表中插入資料。
+--    - `users_confidential.user_id` 欄位必須精確對應 `users.user_id`，否則資料會因為
+--      外鍵約束 (Foreign Key Constraint) 而無法寫入喔！
+-- =========================================================================
+
+-- 提問：若考慮使用者刪除帳號之情況，該如何處理？ --解：用is_active解決，保留交易與歷史紀錄，至於users_confidential，考慮1.同樣is_active 2.刪掉
+
 CREATE TABLE IF NOT EXISTS users (
     user_id VARCHAR(50) PRIMARY KEY,
     full_name VARCHAR(100) NOT NULL,
@@ -39,6 +68,7 @@ CREATE TABLE IF NOT EXISTS users (
 );
 
 --把password等敏感資訊獨立成一個表，並設置user_id為外鍵參照users表，並在users表刪除時級聯刪除users_confidential表中的相關記錄，以增強數據安全性和隱私保護。
+--!!缺少hash值、加密方式
 CREATE TABLE IF NOT EXISTS users_confidential (
     user_id VARCHAR(50) PRIMARY KEY REFERENCES users(user_id) ON DELETE CASCADE,
     password VARCHAR(255) NOT NULL,
@@ -321,6 +351,10 @@ CREATE TABLE IF NOT EXISTS national_rail_seat_layouts (
     layout_id VARCHAR(20) PRIMARY KEY,
     schedule_id VARCHAR(20) REFERENCES national_rail_schedules(schedule_id)
 );
+--提問：national_rail_coaches為何不須聯合schedule_id
+--提問：於.sql和.json中使用不同變數名稱會影響引入嗎(coach_id vs coach)
+
+--註解：coach: 車廂的編號或代號、fare_class: 該車廂的票價等級、ayout_id: 座位配置的唯一識別碼
 
 CREATE TABLE IF NOT EXISTS national_rail_coaches (
     coach_id SERIAL PRIMARY KEY,
@@ -328,6 +362,8 @@ CREATE TABLE IF NOT EXISTS national_rail_coaches (
     coach_name VARCHAR(5),
     fare_class VARCHAR(20)
 );
+
+--註解：seat_id座位號碼、row: 座位所在的「排」數、column: 座位所在的「行」或「位置」
 
 CREATE TABLE IF NOT EXISTS national_rail_seats (
     seat_id VARCHAR(10),
@@ -357,6 +393,8 @@ CREATE TABLE IF NOT EXISTS national_rail_bookings (
     travelled_at TIMESTAMP
 );
 
+--提問：新增day_pass_ref，不確定是否需要，無相關欄位存在於.json檔案中  --解：已存在
+--提問：若不同日但搭乘同班次，是否會被當作同一天的day_pass
 CREATE TABLE IF NOT EXISTS metro_travel_history (
     trip_id VARCHAR(20) PRIMARY KEY,
     user_id VARCHAR(50) REFERENCES users(user_id),
@@ -382,7 +420,7 @@ CREATE TABLE IF NOT EXISTS payments (
     status VARCHAR(20),
     paid_at TIMESTAMP
 );
-
+--checked name
 CREATE TABLE IF NOT EXISTS feedback (
     feedback_id VARCHAR(20) PRIMARY KEY,
     booking_id VARCHAR(20),
