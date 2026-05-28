@@ -55,8 +55,8 @@
 --      外鍵約束 (Foreign Key Constraint) 而無法寫入喔！
 -- =========================================================================
 
--- 提問：若考慮使用者刪除帳號之情況，該如何處理？ --解：用is_active解決，保留交易與歷史紀錄，至於users_confidential，考慮1.同樣is_active 2.刪掉
-
+--提問：若考慮使用者刪除帳號之情況，該如何處理？ --解：用is_active解決，保留交易與歷史紀錄
+--提問：users_confidential在使用者刪除帳號時，考慮1.同樣is_active 2.刪掉
 CREATE TABLE IF NOT EXISTS users (
     user_id VARCHAR(50) PRIMARY KEY,
     full_name VARCHAR(100) NOT NULL,
@@ -351,7 +351,7 @@ CREATE TABLE IF NOT EXISTS national_rail_seat_layouts (
     layout_id VARCHAR(20) PRIMARY KEY,
     schedule_id VARCHAR(20) REFERENCES national_rail_schedules(schedule_id)
 );
---提問：national_rail_coaches為何不須聯合schedule_id
+--提問：national_rail_coaches為何不須聯合schedule_id，會不會有問題      --解：應該是不同車次不一定共用
 --提問：於.sql和.json中使用不同變數名稱會影響引入嗎(coach_id vs coach)
 
 --註解：coach: 車廂的編號或代號、fare_class: 該車廂的票價等級、ayout_id: 座位配置的唯一識別碼
@@ -359,7 +359,7 @@ CREATE TABLE IF NOT EXISTS national_rail_seat_layouts (
 CREATE TABLE IF NOT EXISTS national_rail_coaches (
     coach_id SERIAL PRIMARY KEY,
     layout_id VARCHAR(20) REFERENCES national_rail_seat_layouts(layout_id),
-    coach_name VARCHAR(5),
+    coach_name VARCHAR(20),
     fare_class VARCHAR(20)
 );
 
@@ -394,7 +394,7 @@ CREATE TABLE IF NOT EXISTS national_rail_bookings (
 );
 
 --提問：新增day_pass_ref，不確定是否需要，無相關欄位存在於.json檔案中  --解：已存在
---提問：若不同日但搭乘同班次，是否會被當作同一天的day_pass
+--提問：若不同日但搭乘同班次，是否會被當作同一天的day_pass  --解：不會，有travel_date
 CREATE TABLE IF NOT EXISTS metro_travel_history (
     trip_id VARCHAR(20) PRIMARY KEY,
     user_id VARCHAR(50) REFERENCES users(user_id),
