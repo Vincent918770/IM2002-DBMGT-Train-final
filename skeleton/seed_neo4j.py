@@ -6,9 +6,6 @@ Run once after starting Docker:
 Loads station and network data from train-mock-data/:
   - metro_stations.json         — city metro stations and adjacencies
   - national_rail_stations.json — national rail stations and adjacencies
-
-Design your graph schema (node labels, relationship types, properties)
-based on the data in these files, then implement the seed() function below.
 """
 
 import json
@@ -31,31 +28,72 @@ def _load(filename):
 
 
 def seed():
+    # 1. 讀取 mock 資料
     metro_stations = _load("metro_stations.json")
     rail_stations  = _load("national_rail_stations.json")
 
+    # 2. 建立資料庫連線驅動（自動帶入 config 的連線資訊）
     driver = GraphDatabase.driver(NEO4J_URI, auth=(NEO4J_USER, NEO4J_PASSWORD))
+    
     with driver.session() as session:
+        # 使用 execute_write 封裝交易邏輯，確保寫入安全性
+        def _execute_seeding(tx):
+            print("正在清空舊資料庫...")
+            tx.run("MATCH (n) DETACH DELETE n")
 
-        session.run("MATCH (n) DETACH DELETE n")
-        print("  Cleared existing graph data")
+            # ---- (A) 建立捷運站節點 ----
+            print("正在建立捷運站節點...")
+            tx.run("""
+                UNWIND $data AS m
+                MERGE (s:MetroStation {id: m.station_id})
+                SET s.name = m.name, s.lines = m.lines
+            """, data=metro_stations)
 
-        # TODO: Design your node labels and create metro station nodes.
-        # Each station has: station_id, name, lines, and interchange info.
-        # See metro_stations.json for the full data structure.
+            # ---- (B) 建立國鐵站節點 ----
+            print("正在建立國鐵站節點...")
+            tx.run("""
+                UNWIND $data AS r
+                MERGE (s:RailStation {id: r.station_id})
+                SET s.name = r.name, s.lines = r.lines
+            """, data=rail_stations)
 
-        # TODO: Design your node labels and create national rail station nodes.
-        # See national_rail_stations.json for the full data structure.
+            # ---- (C) 建立捷運路線連線 (LINKED_TO) ----
+            print("正在建立捷運路線軌道連線...")
+            tx.run("""
+                UNWIND $data AS m
+                MATCH (f:MetroStation {id: m.station_id})
+                UNWIND m.adjacent_stations AS adj
+                MATCH (t:MetroStation {id: adj.station_id})
+                WHERE adj.line IN m.lines
+                MERGE (f)-[rel_m:LINKED_TO {line: adj.line}]->(t)
+                SET rel_m.travel_time_min = adj.travel_time_min
+            """, data=metro_stations)
 
-        # TODO: Design your relationship types and create metro links.
-        # Each station lists its adjacent_stations with line and travel_time_min.
-        # Consider what properties to store on the relationship.
+            # ---- (D) 建立國鐵路線連線 (LINKED_TO) ----
+            print("正在建立國鐵路線軌道連線...")
+            tx.run("""
+                UNWIND $data AS r
+                MATCH (f:RailStation {id: r.station_id})
+                UNWIND r.adjacent_stations AS adj
+                MATCH (t:RailStation {id: adj.station_id})
+                WHERE adj.line IN r.lines
+                MERGE (f)-[rel_r:LINKED_TO {line: adj.line}]->(t)
+                SET rel_r.travel_time_min = adj.travel_time_min
+            """, data=rail_stations)
 
-        # TODO: Design your relationship types and create national rail links.
+            # ---- (E) 動態建立跨系統轉乘關係 (TRANSFER_TO) ----
+            print("正在動態建立捷運與國鐵間的轉乘通道...")
+            tx.run("""
+                UNWIND $data AS m
+                WITH m WHERE m.is_interchange_national_rail = true AND m.interchange_national_rail_station_id IS NOT NULL
+                MATCH (metro:MetroStation {id: m.station_id})
+                MATCH (rail:RailStation {id: m.interchange_national_rail_station_id})
+                MERGE (metro)-[:TRANSFER_TO]->(rail)
+                MERGE (rail)-[:TRANSFER_TO]->(metro)
+            """, data=metro_stations)
 
-        # TODO: Create interchange relationships between metro and rail stations.
-        # Interchange info is in the is_interchange_national_rail field
-        # of metro_stations.json.
+        # 執行寫入交易
+        session.execute_write(_execute_seeding)
 
     driver.close()
     print("\nNeo4j graph seeded successfully.")
