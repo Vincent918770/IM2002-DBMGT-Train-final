@@ -1,3 +1,25 @@
+"""
+TransitFlow — Neo4j Graph Database Layer
+=========================================
+This module handles all queries to Neo4j.
+
+GRAPH ROLE:
+  - Model the dual transit network (city metro M1–M4 + national rail NR1–NR2)
+  - Find fastest routes (Dijkstra by travel_time_min via APOC)
+  - Find cheapest routes (Dijkstra by fare via APOC)
+  - Find alternative routes avoiding a given station
+  - Find cross-network interchange paths (metro → rail or rail → metro)
+  - Show delay ripple: which stations are affected within N hops
+
+STUDENT TASK
+------------
+Design your graph schema (node labels, relationship types, properties)
+based on the data in train-mock-data/, seed it with skeleton/seed_neo4j.py,
+then implement the query_ functions below.
+
+Functions prefixed with `query_` are called by the agent (skeleton/agent.py).
+"""
+
 from __future__ import annotations
 from typing import Optional
 from neo4j import GraphDatabase
@@ -27,7 +49,19 @@ def query_shortest_route(
     destination_id: str,
     network: str = "auto",
 ) -> dict:
-    """Find the fastest path between two stations, minimising total travel time."""
+    """
+    Find the fastest path between two stations, minimising total travel time.
+    Uses apoc.algo.dijkstra (APOC required; enabled in docker-compose.yml).
+
+    Args:
+        origin_id:       e.g. "MS01" or "NR01"
+        destination_id:  e.g. "MS09" or "NR05"
+        network:         "metro", "rail", or "auto" (inferred from IDs)
+
+    Returns:
+        dict with keys: found, origin_id, destination_id,
+                        total_time_min, path (list of station dicts), legs
+    """
     with _driver() as driver:
         with driver.session() as session:
             # 使用 apoc.algo.dijkstra 尋找權重最短路徑
@@ -62,7 +96,18 @@ def query_cheapest_route(
     network: str = "auto",
     fare_class: str = "standard",
 ) -> dict:
-    """Find the cheapest path between two stations, minimising total estimated fare."""
+    """
+    Find the cheapest path between two stations, minimising total estimated fare.
+
+    Args:
+        origin_id:       e.g. "NR01"
+        destination_id:  e.g. "NR05"
+        network:         "metro", "rail", or "auto"
+        fare_class:      "standard" or "first" (national rail only)
+
+    Returns:
+        dict with found, total_fare_usd (approximate), stations, legs
+    """
     # 依據傳入的艙等選擇對應的關係屬性
     weight_prop = "fare_first" if fare_class == "first" else "fare_standard"
     
@@ -100,7 +145,18 @@ def query_alternative_routes(
 ) -> list[list[dict]]:
     """
     Find paths between two stations that avoid a specific intermediate station.
-    利用 apoc.algo.allSimplePaths 搜尋所有路徑，並在 Cypher 中過濾掉故障站。
+    Useful for routing around a delayed or closed station.
+    (利用 apoc.algo.allSimplePaths 搜尋所有路徑，並在 Cypher 中過濾掉故障站。)
+
+    Args:
+        origin_id:         e.g. "NR01"
+        destination_id:    e.g. "NR05"
+        avoid_station_id:  e.g. "NR03"
+        network:           "metro", "rail", or "auto"
+        max_routes:        max number of alternatives to return
+
+    Returns:
+        List of routes, each route is a list of leg dicts
     """
     with _driver() as driver:
         with driver.session() as session:
@@ -125,7 +181,17 @@ def query_alternative_routes(
 # ── CROSS-NETWORK INTERCHANGE PATH ───────────────────────────────────────────
 
 def query_interchange_path(origin_id: str, destination_id: str) -> dict:
-    """Find a path between a metro station and a national rail station via interchanges."""
+    """
+    Find a path between a metro station and a national rail station (or vice versa)
+    crossing the network boundary via interchange relationships.
+
+    Args:
+        origin_id:       e.g. "MS03" (metro) or "NR05" (national rail)
+        destination_id:  e.g. "NR05" (national rail) or "MS09" (metro)
+
+    Returns:
+        dict with found, stations list, interchange points, total_time_min
+    """
     with _driver() as driver:
         with driver.session() as session:
             # 尋找包含 TRANSFER_TO 關係的跨網路最短路徑
@@ -161,7 +227,17 @@ def query_interchange_path(origin_id: str, destination_id: str) -> dict:
 # ── DELAY RIPPLE ANALYSIS ─────────────────────────────────────────────────────
 
 def query_delay_ripple(delayed_station_id: str, hops: int = 2) -> list[dict]:
-    """Find all stations within N hops of a delayed or disrupted station."""
+    """
+    Find all stations within N hops of a delayed or disrupted station.
+    Works on both metro and national rail networks.
+
+    Args:
+        delayed_station_id: e.g. "NR03" or "MS01"
+        hops:               how many connections out to search (default 2)
+
+    Returns:
+        List of dicts: {station_id, name, hops_away, lines_affected}
+    """
     with _driver() as driver:
         with driver.session() as session:
             # 運用 Cypher 變長路徑 *1..hops 計算特定步數內影響的車站
@@ -191,7 +267,12 @@ def query_delay_ripple(delayed_station_id: str, hops: int = 2) -> list[dict]:
 # ── STATION CONNECTIONS ───────────────────────────────────────────────────────
 
 def query_station_connections(station_id: str) -> list[dict]:
-    """List all direct connections from a given station."""
+    """
+    List all direct connections from a given station.
+
+    Args:
+        station_id: e.g. "MS01" or "NR01"
+    """
     with _driver() as driver:
         with driver.session() as session:
             cypher = """
