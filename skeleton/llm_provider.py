@@ -12,8 +12,9 @@ the pgvector index with the new embedding model.
 Students: You do NOT need to change this file.
 """
 
+from __future__ import annotations
 import requests
-from typing import List, Dict
+from typing import List
 from google import genai
 from google.genai import types
 
@@ -122,7 +123,7 @@ class LLMProvider:
         print(f"[LLM] Switched Ollama model to: {model_name}")
         return f"✅ Switched to {model_name}"
 
-    def get_available_ollama_models(self) -> List[str]:
+    def get_available_ollama_models(self) -> list[str]:
         try:
             r = requests.get(f"{OLLAMA_BASE_URL}/api/tags", timeout=5)
             r.raise_for_status()
@@ -133,7 +134,7 @@ class LLMProvider:
 
     # ── Public API ─────────────────────────────────────────────────────────
 
-    def chat(self, messages: List[Dict], system_prompt: str = "") -> str:
+    def chat(self, messages: list[dict], system_prompt: str = "") -> str:
         if self.chat_provider == "gemini":
             return self._gemini_chat(messages, system_prompt)
         return self._ollama_chat(messages, system_prompt)
@@ -146,7 +147,7 @@ class LLMProvider:
 
     # ── Gemini internals ───────────────────────────────────────────────────
 
-    def _gemini_chat(self, messages: List[Dict], system_prompt: str) -> str:
+    def _gemini_chat(self, messages: list[dict], system_prompt: str) -> str:
         contents = []
         for m in messages:
             role = "model" if m["role"] == "assistant" else "user"
@@ -177,7 +178,7 @@ class LLMProvider:
 
     # ── Ollama internals ───────────────────────────────────────────────────
 
-    def _ollama_chat(self, messages: List[Dict], system_prompt: str) -> str:
+    def _ollama_chat(self, messages: list[dict], system_prompt: str) -> str:
         # Ollama only accepts {"role": ..., "content": ...} — strip any extra keys
         clean_messages = [{"role": m["role"], "content": m["content"]} for m in messages]
         if system_prompt:
@@ -203,11 +204,11 @@ class LLMProvider:
 
     def ollama_tool_call(
         self,
-        history: List[Dict],
-        tools: List[Dict],
+        history: list[dict],
+        tools: list[dict],
         user_message: str,
         system_prompt: str = "",
-    ) -> List[Dict]:
+    ) -> list[dict]:
         """
         Use Ollama's native tool-calling API to select tools.
         llama3.2:1b is fine-tuned for this and produces reliable results,
