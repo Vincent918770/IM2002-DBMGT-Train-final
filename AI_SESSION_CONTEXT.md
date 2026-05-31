@@ -125,11 +125,22 @@ def query_station_connections(station_id: str) -> list[dict]: ...
 <!-- Share prompts that produced good output so teammates can reuse them. -->
 
 ### Schema design prompt that worked:
+
 ```
 TODO — add a prompt here after your schema design workshop
 ```
 
 ### Query implementation prompt that worked:
+
 ```
 TODO — add after implementing your first function
+```
+
+## Checklist
+
+- [] national_rail_coaches and coach_name和national_rail_booking have the same meaning
+
+```
+現在的作法：訂單表記錄 coach = 'A'、seat_id = 'A05'，但沒有用外鍵 (Foreign Key) 綁定。
+如果設計得更嚴謹：我們應該讓 national_rail_bookings 記錄一個 seat_id_fk (或者 coach_id_fk) 指向實體表。這樣一來，訂單表裡面就完全不需要存 coach 和 seat_id 字串了！要查詢車廂代號時，只要 JOIN 回 national_rail_coaches 讀取 coach_name 即可。這能避免「訂單寫車廂 B，但配置表說這班車只有車廂 A」這種不一致的錯誤。
 ```
