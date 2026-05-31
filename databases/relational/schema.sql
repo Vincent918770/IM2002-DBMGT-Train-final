@@ -271,7 +271,7 @@ CREATE TABLE IF NOT EXISTS national_rail_seat_layouts (
 CREATE TABLE IF NOT EXISTS national_rail_coaches (
     coach_id SERIAL PRIMARY KEY,
     layout_id VARCHAR(20) REFERENCES national_rail_seat_layouts(layout_id),
-    coach_name VARCHAR(20),
+    coach_name VARCHAR(5),
     fare_class VARCHAR(20)
 );
 
