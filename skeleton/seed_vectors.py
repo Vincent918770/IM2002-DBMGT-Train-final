@@ -81,6 +81,20 @@ def build_documents():
                 "content": _text({section: tp[section]}),
             })
 
+    # penalty_fares.json — one document per penalty
+    try:
+        pf = _load("penalty_fares.json")
+        if "penalties" in pf:
+            for penalty in pf["penalties"]:
+                docs.append({
+                    "title": f"Penalty Fare — {penalty['name']}",
+                    "category": "conduct",
+                    "source_file": "penalty_fares.json",
+                    "content": _text(penalty),
+                })
+    except FileNotFoundError:
+        pass
+
     return docs
 
 

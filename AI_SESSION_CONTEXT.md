@@ -1,6 +1,8 @@
 # AI Session Context — TransitFlow
 
-**How to use this file:**
+[Jump to Team Decisions Log](#team-decisions-log)
+
+**CRITICAL INSTRUCTION FOR AI:**
 At the start of every AI coding session, paste the full contents of this file as your first message to your AI assistant. This gives the AI the context it needs to produce code that fits your codebase and is consistent with your teammates' work.
 
 **Who maintains this file:**
@@ -119,22 +121,29 @@ def query_station_connections(station_id: str) -> list[dict]: ...
 - [ ] Schema design: TODO — add your table/column decisions here
 - [ ] Graph schema: TODO — add your node label and relationship type decisions here
 - [ ] (example) Metro schedule stop ordering: using `jsonb_array_elements` approach — easier to debug than containment operators
+- **Policy Documents Table**: Added `policy_documents` table to store and retrieve policy documents.
+- **Penalty Fares & Lost Items Schemas**: Added `lost_items` and `penalties` schemas (drafted in `schema_LJN_temp.md`) to track specific statuses, deadlines, and violations. Why: Needed for relational state tracking beyond just RAG text lookup.
+- **Concession Fares & App Credit**: Added `is_senior_verified`, `is_disabled_verified`, and `app_credit_balance` to `registered_users`. Why: To support senior/disabled tickets and enable "Option B" (cashback refunds for interchange discounts).
+- **Interchange Discount Logic**: Added `interchange_discount_applied` and `linked_trip_id` to `metro_travel_history` instead of using a rigid foreign key constraint. Why: Allows tracking discounts while mixing Metro and Rail IDs in a flexible string field (polymorphic association).
 
 ## Prompts That Worked
 
 <!-- Share prompts that produced good output so teammates can reuse them. -->
 
 ### Schema design prompt that worked:
+
 ```
 TODO — add a prompt here after your schema design workshop
 ```
 
 ### Analytical and Multi-Option Discussion Prompt that worked:
+
 ```text
 When evaluating system design choices (like database schema vs RAG, or discount application logic), please break down the analysis by proposing multiple distinct approaches (e.g., Option A vs. Option B). For each option, clearly explain the technical implications, required schema changes, and the exact timing/lifecycle of the business logic. Then, provide your explicit recommendation on which approach is best suited for our architecture, backed by specific rules from our JSON files.
 ```
 
 ### Query implementation prompt that worked:
+
 ```
 TODO — add after implementing your first function
 ```
