@@ -129,6 +129,11 @@ def query_station_connections(station_id: str) -> list[dict]: ...
 TODO — add a prompt here after your schema design workshop
 ```
 
+### Analytical and Multi-Option Discussion Prompt that worked:
+```text
+When evaluating system design choices (like database schema vs RAG, or discount application logic), please break down the analysis by proposing multiple distinct approaches (e.g., Option A vs. Option B). For each option, clearly explain the technical implications, required schema changes, and the exact timing/lifecycle of the business logic. Then, provide your explicit recommendation on which approach is best suited for our architecture, backed by specific rules from our JSON files.
+```
+
 ### Query implementation prompt that worked:
 ```
 TODO — add after implementing your first function
