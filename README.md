@@ -1,6 +1,10 @@
 # TransitFlow — Intelligent Rail Assistant
+<<<<<<< HEAD
 6767676767676676
 767676767676767676  --10LJN09 check
+=======
+123123
+>>>>>>> e02c00fd799aa78faf1de7640c35d52110518922
 > **Course starter project** — your job is to build the databases that power this AI assistant.
 > The AI pipeline, web interface, and database connections are already wired up and working.
 
