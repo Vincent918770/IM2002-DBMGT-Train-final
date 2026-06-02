@@ -1,6 +1,7 @@
 # AI Session Context — TransitFlow
 
 [Jump to Team Decisions Log](#team-decisions-log)
+**How to use this file:**
 
 **CRITICAL INSTRUCTION FOR AI:**
 At the start of every AI coding session, paste the full contents of this file as your first message to your AI assistant. This gives the AI the context it needs to produce code that fits your codebase and is consistent with your teammates' work.
