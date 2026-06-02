@@ -42,7 +42,6 @@ The mock files are categorized as follows:
 | | metro_travel_history.json | Metro tap-in / travel records, including Day Pass activations. |
 | | payments.json | Transactional payments tied to bookings and metro trips. |
 | | feedback.json | Customer ratings and reviews of completed trips. |
-
 ---
 
 ## 📜 Business Policies & Rules Deep-Dive
@@ -124,16 +123,17 @@ Defines the technical properties of ticket categories:
 ### 4. Travel Policies (`travel_policies.json`)
 Specifies conditions of carriage (luggage, pets, bikes, conduct, prohibited items, and smoking policy). Key elements:
 
+
 * **Metro**:
   * **Bicycles**: Foldable bikes are permitted *outside* peak hours (Peak: 07:00-09:30 and 17:00-20:00 weekdays). Standard non-foldable bikes are **prohibited at all times**. E-scooters are prohibited due to battery fire safety.
   * **Luggage**: Max 2 items per passenger, max size 70x50x30 cm.
   * **Pets**: Permitted only in enclosed carriers (max 50x35x25 cm). Assistance dogs exempt.
   * **Food/Drink**: Sealed drinks permitted. Hot/smelling food and alcohol are strictly prohibited. Priority seats must be vacated for seniors/pregnant/disabled/children.
-    * **Prohibited Items**: Weapons, foldable/non-foldable standard bikes/e-scooters (as per restrictions), smelly items, and key restricted categories:
-    * *Knives and sharp items*: Various knives, scissors, utility knives (exposed blades due to improper packaging are violations).
-    * *Flammable and explosive materials*: Gasoline, paint, turpentine/rosin water, pressurized gases, explosives, etc.
-    * *Chemical and hazardous items*: Corrosive liquids, highly toxic chemicals, etc.
+  * **Prohibited Items**: Weapons, foldable/non-foldable standard bikes/e-scooters (as per restrictions), smelly items, and key restricted categories:
+  * *Knives and sharp items*: Various knives, scissors, utility knives (exposed blades due to improper packaging are violations).
+  * *Flammable and explosive materials*: Gasoline, paint, turpentine/rosin water, pressurized gases, explosives, etc.   * *Chemical and hazardous items*: Corrosive liquids, highly toxic chemicals, etc.
   * **Smoking Policy**: Strictly prohibited by law. Under statutory rules, all public transport vehicles and areas including indoor waiting rooms, platforms, and carriage interiors are strictly non-smoking.
+
 * **National Rail**:
   * **Bicycles**: Foldable permitted free. Standard bikes permitted in designated bays (max 2 per train) with a **$2.00 fee** paid at the platform bay gate. Prohibited during peak hours (07:00-09:30, 16:30-19:00).
   * **Pets**: Dogs permitted on a lead in standard class coaches only (no seat occupancy, $0 fee).
@@ -265,136 +265,12 @@ Payments mapping to a National Rail booking or Metro trip. Statuses include `"pa
   "status": "paid",
   "paid_at": "2026-04-01T10:16:00Z"
 }
-## 📈 Network & Timetable Master Data
-
-### 1. Stations & Layouts
-* **Metro Stations (`metro_stations.json`)**: List of 20 stations (`MS01` to `MS20`). Each record lists lines served, interchange attributes, and adjacent stations with travel times.
-* **Rail Stations (`national_rail_stations.json`)**: List of 10 stations (`NR01` to `NR10`).
-* **Rail Seat Layouts (`national_rail_seat_layouts.json`)**: Schedules map to a seat layout (e.g. `SL01` for `NR_SCH01`). Coach A is First Class (seats A01–A06), Coach B is Standard Class (seats B01–B12).
-
-### 2. Timetables & Schedules
-* **Metro Schedules (`metro_schedules.json`)**:
-  * `MS_SCH01`/`MS_SCH02` (M1 line northbound/southbound)
-  * `MS_SCH03`/`MS_SCH04` (M2 line eastbound/westbound)
-  * `MS_SCH05`/`MS_SCH06` (M3 line northbound/southbound)
-  * `MS_SCH07`/`MS_SCH08` (M4 line eastbound/westbound)
-  * Every schedule specifies a base fare of **$0.80** and per stop rate of **$0.30**.
-* **National Rail Schedules (`national_rail_schedules.json`)**:
-  * `NR_SCH01`/`NR_SCH02` (NR1 line northbound/southbound - Normal service)
-    * Fare standard: $2.50 base, $1.50 per stop. First: $4.00 base, $2.50 per stop.
-  * `NR_SCH03`/`NR_SCH04` (NR2 line eastbound/westbound - Normal service)
-  * `NR_SCH05`/`NR_SCH06` (NR1 line - Express service: skips NR02, NR04)
-    * Fare standard: $6.60 base, $1.80 per stop. First: $10.80 base, $3.00 per stop.
-  * `NR_SCH07`/`NR_SCH08` (NR2 line - Express service: skips NR06, NR08)
-
----
-
-## 💾 Transactional & User Mock Data
-
-### 1. Registered Users (`registered_users.json`)
-Contains 20 mock users (`RU01` to `RU20`). Includes plaintext passwords, secret questions, registered dates, and active flags.
-**Example Schema:**
-```json
-{
-  "user_id": "RU01",
-  "full_name": "Alice Tan",
-  "email": "alice.tan@email.com",
-  "password": "alice1990",
-  "phone": "07912340101",
-  "date_of_birth": "1990-03-14",
-  "secret_question": "What was the name of your first pet?",
-  "secret_answer": "Biscuit",
-  "registered_at": "2023-01-10T09:00:00Z",
-  "is_active": true
-}
-```
-
-### 2. National Rail Bookings (`bookings.json`)
-Records representing reservations made by registered users on National Rail.
-**Example Schema:**
-```json
-{
-  "booking_id": "BK001",
-  "user_id": "RU01",
-  "schedule_id": "NR_SCH01",
-  "origin_station_id": "NR01",
-  "destination_station_id": "NR05",
-  "travel_date": "2026-04-02",
-  "departure_time": "07:00",
-  "ticket_type": "single",
-  "fare_class": "standard",
-  "coach": "B",
-  "seat_id": "B05",
-  "stops_travelled": 4,
-  "amount_usd": 8.50,
-  "status": "completed",
-  "booked_at": "2026-04-01T10:15:00Z",
-  "travelled_at": "2026-04-02T07:00:00Z"
-}
-```
-
-### 3. Metro Travel History (`metro_travel_history.json`)
-Represents actual trips taken on the Metro.
-* **Single Tickets**: Record has its own `purchased_at` timestamp and fare `amount_usd` (e.g. $1.40, $2.00).
-* **Day Passes**: 
-  * The *first* tap of the day has `ticket_type: "day_pass"`, `day_pass_ref: null`, and `amount_usd: 5.00` (original purchase).
-  * Subsequent taps on that day have `day_pass_ref: "MTXXX"` (pointing to the first trip's ID) and `amount_usd: 0.00`.
-
-**Example Schemas:**
-```json
-// Single Ticket Metro Journey
-{
-  "trip_id": "MT001",
-  "user_id": "RU02",
-  "schedule_id": "MS_SCH01",
-  "origin_station_id": "MS20",
-  "destination_station_id": "MS01",
-  "travel_date": "2026-04-03",
-  "ticket_type": "single",
-  "stops_travelled": 2,
-  "amount_usd": 1.40,
-  "status": "completed",
-  "purchased_at": "2026-04-03T05:50:00Z",
-  "travelled_at": "2026-04-03T06:05:00Z"
-}
-
-// Day Pass Second Activation (Free Tap)
-{
-  "trip_id": "MT021",
-  "user_id": "RU04",
-  "schedule_id": "MS_SCH04",
-  "origin_station_id": "MS08",
-  "destination_station_id": "MS14",
-  "travel_date": "2026-04-06",
-  "ticket_type": "day_pass",
-  "day_pass_ref": "MT002",
-  "stops_travelled": null,
-  "amount_usd": 0.00,
-  "status": "completed",
-  "purchased_at": null,
-  "travelled_at": "2026-04-06T12:35:00Z"
-}
-```
-
-### 4. Payments (`payments.json`)
-Payments mapping to a National Rail booking or Metro trip. Statuses include `"paid"` and `"refunded"`.
-**Example Schema:**
-```json
-{
-  "payment_id": "PM001",
-  "booking_id": "BK001", // Or MT001 for Metro
-  "amount_usd": 8.50,
-  "method": "credit_card",
-  "status": "paid",
-  "paid_at": "2026-04-01T10:16:00Z"
-}
-```
 
 > [!TIP]
 > **Database Cash Integration Considerations:**
 > When integrating cash payments, the `payments` table and `payments.json` data will need to support `"cash"` as a valid `"method"`. 
 > Unlike bank card payments, cash transactions cannot fail due to network gateways, but their status may require a state representation like `"paid_at_counter"`.
-
+```
 ---
 
 ## 🛠️ Cash Payment Extension Checklist
@@ -418,6 +294,7 @@ To implement cash payments at the counter/terminal on the Metro network, the fol
   - Insert mock payment entries representing cash purchases at physical counters (e.g. using `method: "cash"`).
 - [ ] **Vector Seeder (`seed_vectors.py`)**:
   - After modifying policy files, rerun `python skeleton/seed_vectors.py` to refresh the vector embeddings in the `policy_documents` database so TransitFlow's LLM assistant is aware of the new cash payment rules and counter buying options.
+
 
 ---
 
@@ -589,3 +466,4 @@ TransitFlow 雙網絡大眾運輸系統包含兩個網絡：
   - 插入代表在實體窗口進行現金購買的模擬支付項目（例如使用 `method: "cash"`）。
 - [ ] **向量植入器 (`seed_vectors.py`)**：
   - 修改政策檔案後，重新執行 `python skeleton/seed_vectors.py` 以更新 `policy_documents` 資料庫中的向量嵌入，使 TransitFlow 的 LLM 助手能得知新的現金支付規則與窗口購買選項。
+
