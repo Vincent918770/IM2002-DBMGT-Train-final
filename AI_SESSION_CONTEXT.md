@@ -45,6 +45,7 @@ TransitFlow is a Python-based AI chat assistant for a fictional transit operator
           result = session.run("MATCH ...", station_id=station_id)
           return [dict(record) for record in result]
   ```
+- **Comments:** 使用者為 10LJN09 的註解皆須中英文 (Comments for user 10LJN09 must be in both Chinese and English).
 
 ## Agreed Relational Schema
 
@@ -55,33 +56,33 @@ TransitFlow is a Python-based AI chat assistant for a fictional transit operator
 
 `sql
 -- ============================================================
---  TransitFlow PostgreSQL Schema
---  Seed data is loaded separately by: python skeleton/seed_postgres.py
+-- TransitFlow PostgreSQL Schema
+-- Seed data is loaded separately by: python skeleton/seed_postgres.py
 --
---  TWO ROLES:
---    1. Relational  → dual-network transit data you design below
---    2. Vector      → policy documents for RAG (provided — do not modify)
+-- TWO ROLES:
+-- 1. Relational → dual-network transit data you design below
+-- 2. Vector → policy documents for RAG (provided — do not modify)
 -- ============================================================
 
 -- ============================================================
---  STUDENT TASK — Design and create your relational tables here
+-- STUDENT TASK — Design and create your relational tables here
 --
---  Start from the mock data in train-mock-data/:
---    metro_stations.json, national_rail_stations.json
---    metro_schedules.json, national_rail_schedules.json
---    national_rail_seat_layouts.json
---    registered_users.json
---    bookings.json, metro_travel_history.json
---    payments.json, feedback.json
+-- Start from the mock data in train-mock-data/:
+-- metro_stations.json, national_rail_stations.json
+-- metro_schedules.json, national_rail_schedules.json
+-- national_rail_seat_layouts.json
+-- registered_users.json
+-- bookings.json, metro_travel_history.json
+-- payments.json, feedback.json
 --
---  Think about:
---    - What tables do you need?
---    - What columns and data types?
---    - Which fields are primary keys? Which are foreign keys?
---    - What constraints make sense?
+-- Think about:
+-- - What tables do you need?
+-- - What columns and data types?
+-- - Which fields are primary keys? Which are foreign keys?
+-- - What constraints make sense?
 --
---  Apply your schema with:
---    docker-compose down -v && docker-compose up -d
+-- Apply your schema with:
+-- docker-compose down -v && docker-compose up -d
 -- ============================================================
 
 -- secret_answer、secret_question、password
@@ -102,15 +103,15 @@ TransitFlow is a Python-based AI chat assistant for a fictional transit operator
 -- 提問：若考慮使用者刪除帳號之情況，該如何處理？ --解：用 is_active 解決，保留交易與歷史紀錄
 -- Q: How to handle user account deletion? -- A: Use is_active for soft deletion to retain transaction history.
 -- 提問：users_confidential 在使用者刪除帳號時，考慮 1. 同樣 is_active 2. 刪掉
--- Q: Should users_confidential be soft-deleted or hard-deleted? 
+-- Q: Should users_confidential be soft-deleted or hard-deleted?
 CREATE TABLE IF NOT EXISTS users (
-    user_id VARCHAR(50) PRIMARY KEY,
-    full_name VARCHAR(100) NOT NULL,
-    email VARCHAR(255) UNIQUE NOT NULL,
-    phone VARCHAR(20),
-    date_of_birth DATE,
-    registered_at TIMESTAMP,
-    is_active BOOLEAN
+user_id VARCHAR(50) PRIMARY KEY,
+full_name VARCHAR(100) NOT NULL,
+email VARCHAR(255) UNIQUE NOT NULL,
+phone VARCHAR(20),
+date_of_birth DATE,
+registered_at TIMESTAMP,
+is_active BOOLEAN
 );
 
 -- 將敏感資訊獨立成表，並設置外鍵與級聯刪除 (CASCADE)，增強安全性。
@@ -118,10 +119,10 @@ CREATE TABLE IF NOT EXISTS users (
 -- !! 缺少 hash 值、加密方式
 -- !! Missing password hashing/encryption
 CREATE TABLE IF NOT EXISTS users_confidential (
-    user_id VARCHAR(50) PRIMARY KEY REFERENCES users(user_id) ON DELETE CASCADE,
-    password VARCHAR(255) NOT NULL,
-    secret_question VARCHAR(255),
-    secret_answer VARCHAR(255)
+user_id VARCHAR(50) PRIMARY KEY REFERENCES users(user_id) ON DELETE CASCADE,
+password VARCHAR(255) NOT NULL,
+secret_question VARCHAR(255),
+secret_answer VARCHAR(255)
 );
 
 -- 缺 interchange_metro_lines、adjacent_stations
@@ -151,12 +152,12 @@ CREATE TABLE IF NOT EXISTS users_confidential (
 -- 📌 Note for Neo4j Team: Parse `adjacent_stations` from JSON directly into Graph Relationships.
 -- =========================================================================
 CREATE TABLE IF NOT EXISTS metro_stations (
-    station_id VARCHAR(10) PRIMARY KEY,
-    name VARCHAR(100) NOT NULL,
-    is_interchange_metro BOOLEAN,
-    is_interchange_national_rail BOOLEAN,
-    interchange_national_rail_station_id VARCHAR(10),
-    lines TEXT[]
+station_id VARCHAR(10) PRIMARY KEY,
+name VARCHAR(100) NOT NULL,
+is_interchange_metro BOOLEAN,
+is_interchange_national_rail BOOLEAN,
+interchange_national_rail_station_id VARCHAR(10),
+lines TEXT[]
 );
 
 -- 缺 interchange_national_rail_lines、adjacent_stations
@@ -186,12 +187,12 @@ CREATE TABLE IF NOT EXISTS metro_stations (
 -- 📌 Note for Neo4j Team: Parse `adjacent_stations` from JSON directly into Graph Relationships.
 -- =========================================================================
 CREATE TABLE IF NOT EXISTS national_rail_stations (
-    station_id VARCHAR(10) PRIMARY KEY,
-    name VARCHAR(100) NOT NULL,
-    is_interchange_national_rail BOOLEAN,
-    is_interchange_metro BOOLEAN,
-    interchange_metro_station_id VARCHAR(10),
-    lines TEXT[]
+station_id VARCHAR(10) PRIMARY KEY,
+name VARCHAR(100) NOT NULL,
+is_interchange_national_rail BOOLEAN,
+is_interchange_metro BOOLEAN,
+interchange_metro_station_id VARCHAR(10),
+lines TEXT[]
 );
 
 -- travel_time_from_origin_min 寫於 metro_schedule_stops -- Question
@@ -212,28 +213,28 @@ CREATE TABLE IF NOT EXISTS national_rail_stations (
 -- 📌 Note for Seed Script: Two-step insertion. Insert main table first, then loop array to insert details.
 -- =========================================================================
 CREATE TABLE IF NOT EXISTS metro_schedules (
-    schedule_id VARCHAR(20) PRIMARY KEY,
-    line VARCHAR(10),
-    direction VARCHAR(20),
-    origin_station_id VARCHAR(10) REFERENCES metro_stations(station_id),
-    destination_station_id VARCHAR(10) REFERENCES metro_stations(station_id),
-    first_train_time TIME,
-    last_train_time TIME,
-    base_fare_usd NUMERIC(5,2),
-    per_stop_rate_usd NUMERIC(5,2),
-    frequency_min INT,
-    operates_on TEXT[]
+schedule_id VARCHAR(20) PRIMARY KEY,
+line VARCHAR(10),
+direction VARCHAR(20),
+origin_station_id VARCHAR(10) REFERENCES metro_stations(station_id),
+destination_station_id VARCHAR(10) REFERENCES metro_stations(station_id),
+first_train_time TIME,
+last_train_time TIME,
+base_fare_usd NUMERIC(5,2),
+per_stop_rate_usd NUMERIC(5,2),
+frequency_min INT,
+operates_on TEXT[]
 );
 
 -- checked name
 -- 更名來由已於上方註解說明
 -- renaming reasons mentioned in the comments above
 CREATE TABLE IF NOT EXISTS metro_schedule_stops (
-    schedule_id VARCHAR(20) REFERENCES metro_schedules(schedule_id),
-    station_id VARCHAR(10) REFERENCES metro_stations(station_id),
-    stop_order INT,
-    travel_time_from_origin_min INT,
-    PRIMARY KEY (schedule_id, station_id)
+schedule_id VARCHAR(20) REFERENCES metro_schedules(schedule_id),
+station_id VARCHAR(10) REFERENCES metro_stations(station_id),
+stop_order INT,
+travel_time_from_origin_min INT,
+PRIMARY KEY (schedule_id, station_id)
 );
 
 -- stops_in_order 寫於 national_rail_schedule_stops (stop_order 不確定是否相同)
@@ -257,16 +258,16 @@ CREATE TABLE IF NOT EXISTS metro_schedule_stops (
 -- 📌 Note for Seed Script: Two-step insertion. Insert main table first, then parse dictionary into detail table.
 -- =========================================================================
 CREATE TABLE IF NOT EXISTS national_rail_schedules (
-    schedule_id VARCHAR(20) PRIMARY KEY,
-    line VARCHAR(10),
-    service_type VARCHAR(20),
-    direction VARCHAR(20),
-    origin_station_id VARCHAR(10) REFERENCES national_rail_stations(station_id),
-    destination_station_id VARCHAR(10) REFERENCES national_rail_stations(station_id),
-    first_train_time TIME,
-    last_train_time TIME,
-    frequency_min INT,
-    operates_on TEXT[]
+schedule_id VARCHAR(20) PRIMARY KEY,
+line VARCHAR(10),
+service_type VARCHAR(20),
+direction VARCHAR(20),
+origin_station_id VARCHAR(10) REFERENCES national_rail_stations(station_id),
+destination_station_id VARCHAR(10) REFERENCES national_rail_stations(station_id),
+first_train_time TIME,
+last_train_time TIME,
+frequency_min INT,
+operates_on TEXT[]
 );
 
 -- 多 is_passed_through
@@ -283,12 +284,12 @@ CREATE TABLE IF NOT EXISTS national_rail_schedules (
 -- 📌 Note for Seed Script: Insert stopping stations as false, passed stations as true.
 -- =========================================================================
 CREATE TABLE IF NOT EXISTS national_rail_schedule_stops (
-    schedule_id VARCHAR(20) REFERENCES national_rail_schedules(schedule_id),
-    station_id VARCHAR(10) REFERENCES national_rail_stations(station_id),
-    stop_order INT,
-    travel_time_from_origin_min INT,
-    is_passed_through BOOLEAN,
-    PRIMARY KEY (schedule_id, station_id)
+schedule_id VARCHAR(20) REFERENCES national_rail_schedules(schedule_id),
+station_id VARCHAR(10) REFERENCES national_rail_stations(station_id),
+stop_order INT,
+travel_time_from_origin_min INT,
+is_passed_through BOOLEAN,
+PRIMARY KEY (schedule_id, station_id)
 );
 
 -- base_fare_usd、per_stop_rate_usd 為原多值屬性拆解
@@ -305,16 +306,16 @@ CREATE TABLE IF NOT EXISTS national_rail_schedule_stops (
 -- 📌 Note for Seed Script: Parse the corresponding JSON numbers into these two columns.
 -- =========================================================================
 CREATE TABLE IF NOT EXISTS national_rail_fares (
-    schedule_id VARCHAR(20) REFERENCES national_rail_schedules(schedule_id),
-    fare_class VARCHAR(20),
-    base_fare_usd NUMERIC(5,2),
-    per_stop_rate_usd NUMERIC(5,2),
-    PRIMARY KEY (schedule_id, fare_class)
+schedule_id VARCHAR(20) REFERENCES national_rail_schedules(schedule_id),
+fare_class VARCHAR(20),
+base_fare_usd NUMERIC(5,2),
+per_stop_rate_usd NUMERIC(5,2),
+PRIMARY KEY (schedule_id, fare_class)
 );
 
 CREATE TABLE IF NOT EXISTS national_rail_seat_layouts (
-    layout_id VARCHAR(20) PRIMARY KEY,
-    schedule_id VARCHAR(20) REFERENCES national_rail_schedules(schedule_id)
+layout_id VARCHAR(20) PRIMARY KEY,
+schedule_id VARCHAR(20) REFERENCES national_rail_schedules(schedule_id)
 );
 
 -- 提問：national_rail_coaches 為何不須聯合 schedule_id？ --解：因為 layout_id 已經對應到 schedule_id，不同車次不一定共用。
@@ -325,41 +326,41 @@ CREATE TABLE IF NOT EXISTS national_rail_seat_layouts (
 -- Note: coach = coach code, fare_class = fare tier, layout_id = unique seat layout ID
 
 CREATE TABLE IF NOT EXISTS national_rail_coaches (
-    coach_id SERIAL PRIMARY KEY,
-    layout_id VARCHAR(20) REFERENCES national_rail_seat_layouts(layout_id),
-    coach_name VARCHAR(20),
-    fare_class VARCHAR(20)
+coach_id SERIAL PRIMARY KEY,
+layout_id VARCHAR(20) REFERENCES national_rail_seat_layouts(layout_id),
+coach_name VARCHAR(20),
+fare_class VARCHAR(20)
 );
 
 -- 註解：seat_id 座位號碼、row: 排數、column: 行或位置
 -- Note: seat_id = seat number, row = row number, column = column position (e.g., window/aisle)
 
 CREATE TABLE IF NOT EXISTS national_rail_seats (
-    seat_id VARCHAR(10),
-    coach_id INT REFERENCES national_rail_coaches(coach_id),
-    row_num INT,
-    column_letter VARCHAR(2),
-    PRIMARY KEY (seat_id, coach_id)
+seat_id VARCHAR(10),
+coach_id INT REFERENCES national_rail_coaches(coach_id),
+row_num INT,
+column_letter VARCHAR(2),
+PRIMARY KEY (seat_id, coach_id)
 );
 
 -- checked name
 CREATE TABLE IF NOT EXISTS national_rail_bookings (
-    booking_id VARCHAR(20) PRIMARY KEY,
-    user_id VARCHAR(50) REFERENCES users(user_id),
-    schedule_id VARCHAR(20) REFERENCES national_rail_schedules(schedule_id),
-    origin_station_id VARCHAR(10) REFERENCES national_rail_stations(station_id),
-    destination_station_id VARCHAR(10) REFERENCES national_rail_stations(station_id),
-    travel_date DATE,
-    departure_time TIME,
-    ticket_type VARCHAR(20),
-    fare_class VARCHAR(20),
-    coach VARCHAR(5),
-    seat_id VARCHAR(10),
-    stops_travelled INT,
-    amount_usd NUMERIC(8,2),
-    status VARCHAR(20),
-    booked_at TIMESTAMP,
-    travelled_at TIMESTAMP
+booking_id VARCHAR(20) PRIMARY KEY,
+user_id VARCHAR(50) REFERENCES users(user_id),
+schedule_id VARCHAR(20) REFERENCES national_rail_schedules(schedule_id),
+origin_station_id VARCHAR(10) REFERENCES national_rail_stations(station_id),
+destination_station_id VARCHAR(10) REFERENCES national_rail_stations(station_id),
+travel_date DATE,
+departure_time TIME,
+ticket_type VARCHAR(20),
+fare_class VARCHAR(20),
+coach VARCHAR(5),
+seat_id VARCHAR(10),
+stops_travelled INT,
+amount_usd NUMERIC(8,2),
+status VARCHAR(20),
+booked_at TIMESTAMP,
+travelled_at TIMESTAMP
 );
 
 -- 提問：新增 day_pass_ref，不確定是否需要，無相關欄位存在於 .json？ --解：檔案中其實已存在。
@@ -367,65 +368,63 @@ CREATE TABLE IF NOT EXISTS national_rail_bookings (
 -- 提問：若不同日但搭乘同班次，是否會被當作同一天的 day_pass？ --解：不會，因為有 travel_date 區分。
 -- Q: Will rides on different days be treated as same day_pass? -- A: No, distinguished by travel_date.
 CREATE TABLE IF NOT EXISTS metro_travel_history (
-    trip_id VARCHAR(20) PRIMARY KEY,
-    user_id VARCHAR(50) REFERENCES users(user_id),
-    schedule_id VARCHAR(20) REFERENCES metro_schedules(schedule_id),
-    origin_station_id VARCHAR(10) REFERENCES metro_stations(station_id),
-    destination_station_id VARCHAR(10) REFERENCES metro_stations(station_id),
-    travel_date DATE,
-    ticket_type VARCHAR(20),
-    day_pass_ref VARCHAR(20) REFERENCES metro_travel_history(trip_id),
-    stops_travelled INT,
-    amount_usd NUMERIC(8,2),
-    status VARCHAR(20),
-    purchased_at TIMESTAMP,
-    travelled_at TIMESTAMP
+trip_id VARCHAR(20) PRIMARY KEY,
+user_id VARCHAR(50) REFERENCES users(user_id),
+schedule_id VARCHAR(20) REFERENCES metro_schedules(schedule_id),
+origin_station_id VARCHAR(10) REFERENCES metro_stations(station_id),
+destination_station_id VARCHAR(10) REFERENCES metro_stations(station_id),
+travel_date DATE,
+ticket_type VARCHAR(20),
+day_pass_ref VARCHAR(20) REFERENCES metro_travel_history(trip_id),
+stops_travelled INT,
+amount_usd NUMERIC(8,2),
+status VARCHAR(20),
+purchased_at TIMESTAMP,
+travelled_at TIMESTAMP
 );
 
 -- checked name
 CREATE TABLE IF NOT EXISTS payments (
-    payment_id VARCHAR(20) PRIMARY KEY,
-    booking_id VARCHAR(20),
-    amount_usd NUMERIC(8,2),
-    method VARCHAR(20),
-    status VARCHAR(20),
-    paid_at TIMESTAMP
+payment_id VARCHAR(20) PRIMARY KEY,
+booking_id VARCHAR(20),
+amount_usd NUMERIC(8,2),
+method VARCHAR(20),
+status VARCHAR(20),
+paid_at TIMESTAMP
 );
 -- checked name
 CREATE TABLE IF NOT EXISTS feedback (
-    feedback_id VARCHAR(20) PRIMARY KEY,
-    booking_id VARCHAR(20),
-    user_id VARCHAR(50) REFERENCES users(user_id),
-    rating INT,
-    comment TEXT,
-    submitted_at TIMESTAMP
+feedback_id VARCHAR(20) PRIMARY KEY,
+booking_id VARCHAR(20),
+user_id VARCHAR(50) REFERENCES users(user_id),
+rating INT,
+comment TEXT,
+submitted_at TIMESTAMP
 );
 
-
 -- ============================================================
---  VECTOR SCHEMA  (RAG / Help Desk) — do not modify
+-- VECTOR SCHEMA (RAG / Help Desk) — do not modify
 -- ============================================================
 
 CREATE EXTENSION IF NOT EXISTS vector;
 
 CREATE TABLE IF NOT EXISTS policy_documents (
-    id          SERIAL       PRIMARY KEY,
-    title       VARCHAR(200) NOT NULL,
-    category    VARCHAR(50)  NOT NULL,  -- 'refund', 'booking', 'conduct'
-    content     TEXT         NOT NULL,
-    -- 768-dim  → Ollama nomic-embed-text (default)
-    -- 3072-dim → Gemini gemini-embedding-001
-    -- If you switch LLM_PROVIDER to gemini, change to vector(3072) and reset the database.
-    embedding   vector(768),
-    source_file VARCHAR(200),
-    created_at  TIMESTAMPTZ  DEFAULT NOW()
+id SERIAL PRIMARY KEY,
+title VARCHAR(200) NOT NULL,
+category VARCHAR(50) NOT NULL, -- 'refund', 'booking', 'conduct'
+content TEXT NOT NULL,
+-- 768-dim → Ollama nomic-embed-text (default)
+-- 3072-dim → Gemini gemini-embedding-001
+-- If you switch LLM_PROVIDER to gemini, change to vector(3072) and reset the database.
+embedding vector(768),
+source_file VARCHAR(200),
+created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
 -- Index for fast cosine similarity search
 CREATE INDEX IF NOT EXISTS ON policy_documents USING hnsw (embedding vector_cosine_ops);
 
 `
-
 
 ## Agreed Graph Schema
 
