@@ -31,22 +31,6 @@ def _load(filename: str):
     with open(os.path.join(_DATA_DIR, filename), encoding="utf-8") as f:
         return json.load(f)
 
-        # TODO: Design your node labels and create metro station nodes.
-        # Each station has: station_id, name, lines, and interchange info.
-        # See metro_stations.json for the full data structure.
-
-        # TODO: Design your node labels and create national rail station nodes.
-        # See national_rail_stations.json for the full data structure.
-
-        # TODO: Design your relationship types and create metro links.
-        # Each station lists its adjacent_stations with line and travel_time_min.
-        # Consider what properties to store on the relationship.
-
-        # TODO: Design your relationship types and create national rail links.
-
-        # TODO: Create interchange relationships between metro and rail stations.
-        # Interchange info is in the is_interchange_national_rail field
-        # of metro_stations.json.
 def _create_constraints(session):
     session.run(
         """
@@ -166,11 +150,6 @@ def _extract_interchange_pairs_from_data(metro_stations: list[dict], rail_statio
         metro_id = station.get("interchange_metro_station_id") or station.get("metro_station_id") or station.get("interchange_station_id")
         if metro_id and rail_id and str(metro_id).upper().startswith("MS") and str(rail_id).upper().startswith("NR"):
             pairs.append((str(metro_id).upper(), str(rail_id).upper()))
-
-    fallback_pairs = [("MS01", "NR01"), ("MS07", "NR03"), ("MS15", "NR07")]
-    for pair in fallback_pairs:
-        if pair not in pairs:
-            pairs.append(pair)
 
     unique_pairs = []
     for pair in pairs:
