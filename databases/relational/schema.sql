@@ -318,6 +318,14 @@ CREATE TABLE IF NOT EXISTS national_rail_bookings (
 -- since an adult user could buy a senior ticket for a family member.
 -- =========================================================================
     ticket_type VARCHAR(20),
+-- =========================================================================
+-- [ LJN Temp - Passenger Type Check & Gate Verification ]
+-- 說明：1. 加上 CHECK 約束，防止前端寫入錯字 (如 'adul') 造成髒資料。
+--      2. concession_verification_status 取代布林值，精準區分 '不需要驗證' 
+--         與 '尚未驗證' (A幫B代買的特殊票)。
+-- Description: 1. CHECK constraint prevents dirty data.
+--              2. ENUM status clarifies manual gate verification tracking.
+-- =========================================================================
     passenger_type VARCHAR(20) DEFAULT 'adult' CHECK (passenger_type IN ('adult', 'senior', 'disabled')),
 -- =========================================================================
 -- [ LJN Temp - Interchange Tracking ]
@@ -357,6 +365,14 @@ CREATE TABLE IF NOT EXISTS metro_travel_history (
 -- Description: Mirrored from National Rail, added passenger_type and interchange fields.
 -- =========================================================================
     ticket_type VARCHAR(20),
+-- =========================================================================
+-- [ LJN Temp - Passenger Type Check & Gate Verification ]
+-- 說明：1. 加上 CHECK 約束，防止前端寫入錯字 (如 'adul') 造成髒資料。
+--      2. concession_verification_status 取代布林值，精準區分 '不需要驗證' 
+--         與 '尚未驗證' (A幫B代買的特殊票)。
+-- Description: 1. CHECK constraint prevents dirty data.
+--              2. ENUM status clarifies manual gate verification tracking.
+-- =========================================================================
     passenger_type VARCHAR(20) DEFAULT 'adult' CHECK (passenger_type IN ('adult', 'senior', 'disabled')),
     day_pass_ref VARCHAR(20) REFERENCES metro_travel_history(trip_id),
     interchange_discount_applied BOOLEAN DEFAULT false,

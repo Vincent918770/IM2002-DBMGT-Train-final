@@ -230,6 +230,16 @@ def execute_booking(
     Returns:
         (True, booking_dict)   on success
         (False, error_message) on failure
+        
+    IMPLEMENTATION NOTE FOR STUDENTS (LJN Temp Decisions):
+    1. Wallet Deduction (Race Condition Prevention):
+       Must use pessimistic locking `SELECT app_credit_balance FROM users WHERE user_id = %s FOR UPDATE` 
+       before checking balance and deducting, to prevent concurrent double-spending.
+    2. Polymorphic Association for Interchange:
+       If a linked_trip_id is provided, check its prefix in Python.
+       If `linked_trip_id.startswith('BK')`: query national_rail_bookings. 
+       If `linked_trip_id.startswith('MT')`: query metro_travel_history.
+       This avoids rigid SQL foreign keys and enables cross-network interchange tracking.
     """
     raise NotImplementedError("TODO: implement after designing your schema")
 
