@@ -318,7 +318,7 @@ CREATE TABLE IF NOT EXISTS national_rail_bookings (
 -- since an adult user could buy a senior ticket for a family member.
 -- =========================================================================
     ticket_type VARCHAR(20),
-    passenger_type VARCHAR(20) DEFAULT 'adult',
+    passenger_type VARCHAR(20) DEFAULT 'adult' CHECK (passenger_type IN ('adult', 'senior', 'disabled')),
 -- =========================================================================
 -- [ LJN Temp - Interchange Tracking ]
 -- 說明：加入轉乘優惠標記與關聯行程。
@@ -332,6 +332,7 @@ CREATE TABLE IF NOT EXISTS national_rail_bookings (
     fare_class VARCHAR(20),
     coach VARCHAR(5),
     seat_id VARCHAR(10),
+    concession_verification_status VARCHAR(20) DEFAULT 'not_required' CHECK (concession_verification_status IN ('not_required', 'pending_gate_check', 'verified_at_gate')),
     stops_travelled INT,
     amount_usd NUMERIC(8,2),
     status VARCHAR(20),
@@ -356,13 +357,14 @@ CREATE TABLE IF NOT EXISTS metro_travel_history (
 -- Description: Mirrored from National Rail, added passenger_type and interchange fields.
 -- =========================================================================
     ticket_type VARCHAR(20),
-    passenger_type VARCHAR(20) DEFAULT 'adult',
+    passenger_type VARCHAR(20) DEFAULT 'adult' CHECK (passenger_type IN ('adult', 'senior', 'disabled')),
     day_pass_ref VARCHAR(20) REFERENCES metro_travel_history(trip_id),
     interchange_discount_applied BOOLEAN DEFAULT false,
     -- Polymorphic Association: No SQL FK is used because it could link to either 'BKxxx' or 'MTxxx'.
     -- Application logic (Python) handles the cross-network reference based on the ID prefix.
     -- 多型關聯：不使用 SQL 外鍵，因為它可能指向火車(BK)或地鐵(MT)的訂單。交由 Python 後端依據 ID 開頭前綴來判斷跨系統關聯。
     linked_trip_id VARCHAR(20),
+    concession_verification_status VARCHAR(20) DEFAULT 'not_required' CHECK (concession_verification_status IN ('not_required', 'pending_gate_check', 'verified_at_gate')),
     stops_travelled INT,
     amount_usd NUMERIC(8,2),
     status VARCHAR(20),
@@ -396,10 +398,10 @@ CREATE TABLE IF NOT EXISTS feedback (
 -- =========================================================================
 -- [ LJN Temp - Lost Items Status & High Value ]
 -- 說明：1. 增加 'reported' 狀態：代表失主已報失，但系統尚未尋獲。
---      2. is_high_value：高價值物品 (大於 115 GBP)。由站務員人工判斷並勾選。
+--      2. is_high_value：高價值物品 (大於 150 USD)。由站務員人工判斷並勾選。
 -- 理由：真實遺失物難以精確估算金額存入資料庫，由前端與站務員判斷 boolean 即可。
 -- Description: 1. Added 'reported' status for user-reported items not yet found.
---              2. is_high_value (> 115 GBP) is an operational boolean set by staff.
+--              2. is_high_value (> 150 USD) is an operational boolean set by staff.
 -- Reason: Real lost items are hard to appraise exactly; boolean flags are better.
 -- =========================================================================
 CREATE TYPE lost_item_status AS ENUM ('reported', 'found', 'claimed', 'police', 'donated', 'destroyed', 'love_umbrella');
@@ -411,7 +413,7 @@ CREATE TABLE IF NOT EXISTS lost_items (
     station_id VARCHAR(10), -- The station where it was lost or found
     category VARCHAR(50),
     description TEXT,
-    is_high_value BOOLEAN DEFAULT false, -- Set by staff (e.g., estimated > 115 GBP)
+    is_high_value BOOLEAN DEFAULT false, -- Set by staff (e.g., estimated > 150 USD)
     has_personal_info BOOLEAN DEFAULT false,
     status lost_item_status DEFAULT 'found',
     expiration_date TIMESTAMP,
