@@ -106,6 +106,10 @@ def _merge_connection(session, from_id: str, to_id: str, line: str, travel_time_
                 WHEN $network = "metro" THEN 1.0
                 ELSE toFloat($travel_time_min) * 0.35
             END
+            r.fare_first = CASE
+                WHEN $network = "metro" THEN 1.0
+                ELSE toFloat($travel_time_min) * 0.35 * 1.8
+            END
         """,
         from_id=from_id,
         to_id=to_id,
@@ -122,10 +126,10 @@ def _merge_interchange(session, metro_id: str, rail_id: str) -> bool:
         MATCH (r:Station {station_id: $rail_id})
 
         MERGE (m)-[a:INTERCHANGES_WITH]->(r)
-        SET a.travel_time_min = 5, a.fare = 0.0, a.network = "interchange", a.line = "INTERCHANGE"
+        SET a.travel_time_min = 5, a.fare = 0.0, a.fare_first = 0.0, a.network = "interchange", a.line = "INTERCHANGE"
 
         MERGE (r)-[b:INTERCHANGES_WITH]->(m)
-        SET b.travel_time_min = 5, b.fare = 0.0, b.network = "interchange", b.line = "INTERCHANGE"
+        SET b.travel_time_min = 5, b.fare = 0.0, b.fare_first = 0.0, b.network = "interchange", b.line = "INTERCHANGE"
 
         RETURN count(a) + count(b) AS created_count
         """,
