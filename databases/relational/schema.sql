@@ -1,4 +1,4 @@
-﻿-- ============================================================
+-- ============================================================
 --  TransitFlow PostgreSQL Schema
 --  Seed data is loaded separately by: python skeleton/seed_postgres.py
 --
@@ -31,30 +31,43 @@
 -- ============================================================
 -- MANDATORY DESIGN COMMENTS (Rubric Requirements)
 --
--- [1] PK Design Choice:
---     Most primary keys (e.g., user_id, booking_id, trip_id) use VARCHAR because
---     the IDs are generated as prefixed alphanumeric strings by the application layer
---     (e.g., 'U123', 'BK456', 'MT789') for human readability and cross-system tracing.
---     SERIAL is used only for internal auto-generated keys (e.g., coach_id) where
---     no business-readable identifier is needed.
+-- [1] PK Design Choice (VARCHAR vs SERIAL/UUID):
+--     We explicitly chose VARCHAR for core business primary keys (user_id, booking_id) 
+--     instead of database-native SERIAL or UUID. In a transit system, IDs must be highly 
+--     readable for frontline customer service (e.g., 'BK' for Booking, 'LI' for Lost Item). 
+--     Furthermore, prefixed VARCHARs enable polymorphic routing (see point 5). 
+--     SERIAL is strictly reserved for internal, non-business identifiers (e.g., coach_id).
 --
--- [2] Delete Strategy:
+-- [2] Delete Strategy (Soft vs Hard):
 --     SOFT DELETE is used for the `users` table via the `is_active` BOOLEAN flag.
 --     This preserves the integrity of all historical transaction records
---     (bookings, penalties, payments). Credentials in `users_confidential` are
---     hard-deleted via ON DELETE CASCADE when an admin fully removes a user record.
+--     (bookings, penalties, payments). Conversely, credentials in `users_confidential` are
+--     HARD DELETED via ON DELETE CASCADE for strict security and data minimization.
 --
 -- [3] FK Cascade Behaviors:
 --     - `users_confidential` -> `users`: ON DELETE CASCADE
---       Credentials must be immediately destroyed if the parent user is hard-deleted.
+--       Credentials must be immediately destroyed if the parent user is purged.
 --     - All other Foreign Keys use the default ON DELETE RESTRICT behavior.
 --       This prevents accidental deletion of parent records that still have
 --       associated transaction history (bookings, penalties, travel history).
 --
 -- [4] Password Security:
---     Passwords stored in `users_confidential.password` are hashed using the
---     Argon2id adaptive algorithm via the application layer (skeleton/seed_postgres.py).
+--     Passwords stored in `users_confidential.password` are securely hashed using the
+--     adaptive Argon2id algorithm via the application layer (skeleton/seed_postgres.py).
 --     Plain-text passwords and weak hashes (MD5/SHA-1) are strictly prohibited.
+--
+-- [5] Polymorphic Associations (Trade-off):
+--     The `linked_trip_id` column tracks cross-network transfers (Metro to Rail) without 
+--     strict SQL Foreign Keys. We traded strict database-level referential integrity for 
+--     architectural decoupling. The Python application layer reads the VARCHAR prefix 
+--     ('BK' vs 'MT') to dynamically route queries. This prevents combinatorial explosion 
+--     of FK columns and prepares the schema for microservice separation.
+--
+-- [6] Defensive Constraints & State Machines:
+--     We heavily utilized CHECK constraints (e.g., passenger_type) and ENUM types 
+--     (e.g., lost_item_status, concession_verification_status). This defensive design 
+--     pushes real-world operational state machines directly into the schema layer, 
+--     rejecting dirty data (like typos or invalid states) before it can corrupt the database.
 -- ============================================================
 
 -- =========================================================================
