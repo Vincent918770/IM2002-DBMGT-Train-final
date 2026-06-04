@@ -254,7 +254,7 @@ CREATE TABLE IF NOT EXISTS national_rail_schedule_stops (
 CREATE TABLE IF NOT EXISTS national_rail_fares (
     schedule_id VARCHAR(20) REFERENCES national_rail_schedules(schedule_id),
     -- FK: ON DELETE RESTRICT (default).
-    fare_class VARCHAR(20),
+    fare_class VARCHAR(20) CHECK (fare_class IN ('standard', 'first')),
     base_fare_usd NUMERIC(5,2),
     -- NUMERIC: mandatory for monetary values per rubric.
     per_stop_rate_usd NUMERIC(5,2),
@@ -278,7 +278,7 @@ CREATE TABLE IF NOT EXISTS national_rail_coaches (
     layout_id VARCHAR(20) REFERENCES national_rail_seat_layouts(layout_id),
     -- FK: ON DELETE RESTRICT (default).
     coach_name VARCHAR(5),
-    fare_class VARCHAR(20)
+    fare_class VARCHAR(20) CHECK (fare_class IN ('standard', 'first'))
 );
 
 -- Note: seat_id = seat label (e.g., '12A'), row_num = row number, column_letter = A/B/C/D.
@@ -323,12 +323,12 @@ CREATE TABLE IF NOT EXISTS national_rail_bookings (
     destination_station_id VARCHAR(10) REFERENCES national_rail_stations(station_id),
     travel_date DATE,
     departure_time TIME,
-    ticket_type VARCHAR(20),
+    ticket_type VARCHAR(20) CHECK (ticket_type IN ('single', 'return', 'day_pass')),
     passenger_type VARCHAR(20) DEFAULT 'adult' CHECK (passenger_type IN ('adult', 'senior', 'disabled')),
     interchange_discount_applied BOOLEAN DEFAULT false,
     linked_trip_id VARCHAR(20),
     -- Polymorphic Association: no FK constraint. See note above.
-    fare_class VARCHAR(20),
+    fare_class VARCHAR(20) CHECK (fare_class IN ('standard', 'first')),
     coach VARCHAR(5),
     seat_id VARCHAR(10),
     concession_verification_status VARCHAR(20) DEFAULT 'not_required'
@@ -336,7 +336,7 @@ CREATE TABLE IF NOT EXISTS national_rail_bookings (
     stops_travelled INT,
     amount_usd NUMERIC(8,2),
     -- NUMERIC: mandatory for monetary values per rubric.
-    status VARCHAR(20),
+    status VARCHAR(20) CHECK (status IN ('completed', 'confirmed', 'cancelled')),
     booked_at TIMESTAMPTZ,
     -- TIMESTAMPTZ: timezone-aware per rubric.
     travelled_at TIMESTAMPTZ
@@ -353,7 +353,7 @@ CREATE TABLE IF NOT EXISTS metro_travel_history (
     origin_station_id VARCHAR(10) REFERENCES metro_stations(station_id),
     destination_station_id VARCHAR(10) REFERENCES metro_stations(station_id),
     travel_date DATE,
-    ticket_type VARCHAR(20),
+    ticket_type VARCHAR(20) CHECK (ticket_type IN ('single', 'return', 'day_pass')),
     passenger_type VARCHAR(20) DEFAULT 'adult' CHECK (passenger_type IN ('adult', 'senior', 'disabled')),
     day_pass_ref VARCHAR(20) REFERENCES metro_travel_history(trip_id),
     -- Self-referencing FK for day pass grouping. ON DELETE RESTRICT (default).
@@ -365,7 +365,7 @@ CREATE TABLE IF NOT EXISTS metro_travel_history (
     stops_travelled INT,
     amount_usd NUMERIC(8,2),
     -- NUMERIC: mandatory for monetary values per rubric.
-    status VARCHAR(20),
+    status VARCHAR(20) CHECK (status IN ('completed', 'confirmed', 'cancelled', 'active')),
     purchased_at TIMESTAMPTZ,
     -- TIMESTAMPTZ: timezone-aware per rubric.
     travelled_at TIMESTAMPTZ
