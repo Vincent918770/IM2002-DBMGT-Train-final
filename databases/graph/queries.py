@@ -71,7 +71,8 @@ def query_shortest_route(origin_id: str, destination_id: str, network: str = "au
     """
     Find the fastest path between two stations, minimising total travel time.
     """
-    rel_type = "CONNECTS_TO" if network != "auto" else "CONNECTS_TO|INTERCHANGES_WITH"
+    # 允許走捷運或鐵路；如果是 auto，則加上轉乘連線
+    rel_type = "METRO_LINK|RAIL_LINK" if network != "auto" else "METRO_LINK|RAIL_LINK|INTERCHANGE_TO"
 
     cypher = f"""
     MATCH (start:Station {{station_id: $origin_id}})
@@ -207,7 +208,7 @@ def query_alternative_routes(
     if avoid_station_id in interchange_counterparts:
         avoid_ids.append(interchange_counterparts[avoid_station_id])
 
-    rel_type = "CONNECTS_TO" if network != "auto" else "CONNECTS_TO|INTERCHANGES_WITH"
+    rel_type = "METRO_LINK|RAIL_LINK" if network != "auto" else "METRO_LINK|RAIL_LINK|INTERCHANGE_TO"
 
     cypher = f"""
     MATCH (start:Station {{station_id: $origin_id}})
@@ -263,8 +264,8 @@ def query_interchange_path(origin_id: str, destination_id: str) -> dict:
     MATCH (start:Station {station_id: $origin_id})
     MATCH (end:Station {station_id: $destination_id})
     
-    MATCH path = (start)-[:CONNECTS_TO|INTERCHANGES_WITH*1..15]-(end)
-    WHERE ANY(r IN relationships(path) WHERE type(r) = 'INTERCHANGES_WITH')
+    MATCH path = (start)-[:METRO_LINK|RAIL_LINK|INTERCHANGE_TO*1..15]-(end)
+    WHERE ANY(r IN relationships(path) WHERE type(r) = 'INTERCHANGE_TO')
     
     WITH path, reduce(t = 0, r IN relationships(path) | t + coalesce(r.travel_time_min, 1)) AS total_time
     ORDER BY total_time ASC
@@ -278,7 +279,8 @@ def query_interchange_path(origin_id: str, destination_id: str) -> dict:
             network: n.network,
             lines: n.lines
         }] AS stations,
-        [n IN nodes(path) WHERE ANY(r IN relationships(path) WHERE type(r) = 'INTERCHANGES_WITH' AND (startNode(r) = n OR endNode(r) = n)) | {
+
+        [n IN nodes(path) WHERE ANY(r IN relationships(path) WHERE type(r) = 'INTERCHANGE_TO' AND (startNode(r) = n OR endNode(r) = n)) | {
                 station_id: n.station_id,
                 name: n.name,
                 network: n.network
@@ -328,7 +330,7 @@ def query_delay_ripple(delayed_station_id: str, hops: int = 2) -> list[dict]:
     cypher = """
     MATCH (start:Station {station_id: $delayed_station_id})
     CALL apoc.path.expandConfig(start, {
-        relationshipFilter: "CONNECTS_TO|INTERCHANGES_WITH",
+        relationshipFilter: ""METRO_LINK|RAIL_LINK|INTERCHANGE_TO",
         minLevel: 1,
         maxLevel: $hops,
         uniqueness: "NODE_GLOBAL"
@@ -371,7 +373,7 @@ def query_delay_ripple(delayed_station_id: str, hops: int = 2) -> list[dict]:
 def query_station_connections(station_id: str) -> list[dict]:
     """List all direct connections from a given station."""
     cypher = """
-    MATCH (s:Station {station_id: $station_id})-[r:CONNECTS_TO|INTERCHANGES_WITH]->(target:Station)
+    MATCH (s:Station {station_id: $station_id})-[r:METRO_LINK|RAIL_LINK|INTERCHANGE_TO]->(target:Station)
     RETURN
         target.station_id AS station_id,
         target.name AS name,
