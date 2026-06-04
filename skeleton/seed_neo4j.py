@@ -95,40 +95,53 @@ def _merge_rail_station(session, station: dict):
     )
 
 
-def _merge_connection(session, from_id: str, to_id: str, line: str, travel_time_min: int, network: str):
+def _merge_metro_link(session, from_id: str, to_id: str, line: str, travel_time_min: int):
     session.run(
         """
         MATCH (a:Station {station_id: $from_id})
         MATCH (b:Station {station_id: $to_id})
-        MERGE (a)-[r:CONNECTS_TO {line: $line, network: $network}]->(b)
+        MERGE (a)-[r:METRO_LINK {line: $line}]->(b)
         SET r.travel_time_min = $travel_time_min,
-            r.fare = CASE
-                WHEN $network = "metro" THEN 1.0
-                ELSE toFloat($travel_time_min) * 0.35
-            END
-            r.fare_first = CASE
-                WHEN $network = "metro" THEN 1.0
-                ELSE toFloat($travel_time_min) * 0.35 * 1.8
-            END
+            r.network = "metro",
+            r.fare = 1.0,
+            r.fare_first = 1.0
         """,
         from_id=from_id,
         to_id=to_id,
         line=line,
         travel_time_min=int(travel_time_min),
-        network=network,
+    )
+
+def _merge_rail_link(session, from_id: str, to_id: str, line: str, travel_time_min: int):
+    session.run(
+        """
+        MATCH (a:Station {station_id: $from_id})
+        MATCH (b:Station {station_id: $to_id})
+        MERGE (a)-[r:RAIL_LINK {line: $line}]->(b)
+        SET r.travel_time_min = $travel_time_min,
+            r.network = "national_rail",
+            r.fare = toFloat($travel_time_min) * 0.35,
+            r.fare_first = toFloat($travel_time_min) * 0.35 * 1.8
+        """,
+        from_id=from_id,
+        to_id=to_id,
+        line=line,
+        travel_time_min=int(travel_time_min),
     )
 
 
 def _merge_interchange(session, metro_id: str, rail_id: str) -> bool:
     result = session.run(
         """
-        MATCH (m:Station {station_id: $metro_id})
-        MATCH (r:Station {station_id: $rail_id})
+        MATCH (m:MetroStation {station_id: $metro_id})
+        MATCH (r:NationalRailStation {station_id: $rail_id})
 
-        MERGE (m)-[a:INTERCHANGES_WITH]->(r)
+        /* 修正為 INTERCHANGE_TO */
+        MERGE (m)-[a:INTERCHANGE_TO]->(r)
         SET a.travel_time_min = 5, a.fare = 0.0, a.fare_first = 0.0, a.network = "interchange", a.line = "INTERCHANGE"
 
-        MERGE (r)-[b:INTERCHANGES_WITH]->(m)
+        /* 修正為 INTERCHANGE_TO */
+        MERGE (r)-[b:INTERCHANGE_TO]->(m)
         SET b.travel_time_min = 5, b.fare = 0.0, b.fare_first = 0.0, b.network = "interchange", b.line = "INTERCHANGE"
 
         RETURN count(a) + count(b) AS created_count
@@ -199,7 +212,7 @@ def seed():
                 for adj in station.get("adjacent_stations", []):
                     to_id = adj.get("station_id")
                     if to_id:
-                        _merge_connection(session, station["station_id"], to_id, adj.get("line", "UNKNOWN"), adj.get("travel_time_min", 1), "metro")
+                        _merge_metro_link(session, station["station_id"], to_id, adj.get("line", "UNKNOWN"), adj.get("travel_time_min", 1), "metro")
                         metro_links_count += 1
             print(f"  Created {metro_links_count} metro links")
 
@@ -209,7 +222,7 @@ def seed():
                 for adj in station.get("adjacent_stations", []):
                     to_id = adj.get("station_id")
                     if to_id:
-                        _merge_connection(session, station["station_id"], to_id, adj.get("line", "UNKNOWN"), adj.get("travel_time_min", 1), "national_rail")
+                        _merge_rail_link(session, station["station_id"], to_id, adj.get("line", "UNKNOWN"), adj.get("travel_time_min", 1), "national_rail")
                         rail_links_count += 1
             print(f"  Created {rail_links_count} national rail links")
 
