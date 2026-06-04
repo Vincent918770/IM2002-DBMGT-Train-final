@@ -131,7 +131,7 @@ def query_cheapest_route(
     Find the cheapest path between two stations, minimising total estimated fare.
     Note: Requires 'fare' and 'fare_first' properties to exist in the database.
     """
-    rel_type = "CONNECTS_TO" if network != "auto" else "CONNECTS_TO|INTERCHANGES_WITH"
+    rel_type = "METRO_LINK|RAIL_LINK" if network != "auto" else "METRO_LINK|RAIL_LINK|INTERCHANGE_TO"
     
     # Fix: Dynamically select the weight property for Dijkstra to evaluate correctly during pathfinding
     weight_property = "fare_first" if fare_class == "first" else "fare"
@@ -330,7 +330,7 @@ def query_delay_ripple(delayed_station_id: str, hops: int = 2) -> list[dict]:
     cypher = """
     MATCH (start:Station {station_id: $delayed_station_id})
     CALL apoc.path.expandConfig(start, {
-        relationshipFilter: ""METRO_LINK|RAIL_LINK|INTERCHANGE_TO",
+        relationshipFilter: "METRO_LINK|RAIL_LINK|INTERCHANGE_TO",
         minLevel: 1,
         maxLevel: $hops,
         uniqueness: "NODE_GLOBAL"
