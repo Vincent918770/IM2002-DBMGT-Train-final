@@ -212,7 +212,7 @@ def seed():
                 for adj in station.get("adjacent_stations", []):
                     to_id = adj.get("station_id")
                     if to_id:
-                        _merge_metro_link(session, station["station_id"], to_id, adj.get("line", "UNKNOWN"), adj.get("travel_time_min", 1), "metro")
+                        _merge_metro_link(session, station["station_id"], to_id, adj.get("line", "UNKNOWN"), adj.get("travel_time_min", 1))
                         metro_links_count += 1
             print(f"  Created {metro_links_count} metro links")
 
@@ -222,7 +222,7 @@ def seed():
                 for adj in station.get("adjacent_stations", []):
                     to_id = adj.get("station_id")
                     if to_id:
-                        _merge_rail_link(session, station["station_id"], to_id, adj.get("line", "UNKNOWN"), adj.get("travel_time_min", 1), "national_rail")
+                        _merge_rail_link(session, station["station_id"], to_id, adj.get("line", "UNKNOWN"), adj.get("travel_time_min", 1))
                         rail_links_count += 1
             print(f"  Created {rail_links_count} national rail links")
 
