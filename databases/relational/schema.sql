@@ -1,4 +1,4 @@
--- ============================================================
+﻿-- ============================================================
 --  TransitFlow PostgreSQL Schema
 --  Seed data is loaded separately by: python skeleton/seed_postgres.py
 --
