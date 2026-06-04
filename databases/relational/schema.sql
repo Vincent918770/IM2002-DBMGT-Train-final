@@ -54,7 +54,18 @@ CREATE TABLE IF NOT EXISTS users (
     phone VARCHAR(20),
     date_of_birth DATE,
     registered_at TIMESTAMP,
-    is_active BOOLEAN
+    is_active BOOLEAN,
+-- =========================================================================
+-- [ LJN Temp - Users Verified Concession ]
+-- 說明：新增 verified_concession 欄位，取代原本的 is_verified 布林值。
+-- 理由：如果只用布林值，無法分辨是「敬老(senior)」還是「愛心(disabled)」。
+-- 注意：CHECK 約束預設允許 NULL，因此未驗證或一般成人保持 NULL 即可，不需特別寫入。
+-- Description: Added verified_concession instead of a simple is_verified boolean.
+-- Reason: A boolean cannot differentiate between 'senior' and 'disabled' concessions.
+-- Note: CHECK constraints implicitly allow NULLs, so unverified/adults are naturally NULL.
+-- =========================================================================
+    verified_concession VARCHAR(20) CHECK (verified_concession IN ('senior', 'disabled')),
+    app_credit_balance NUMERIC(10,2) DEFAULT 0.00
 );
 
 -- 將敏感資訊獨立成表，並設置外鍵與級聯刪除 (CASCADE)，增強安全性。
@@ -295,10 +306,41 @@ CREATE TABLE IF NOT EXISTS national_rail_bookings (
     destination_station_id VARCHAR(10) REFERENCES national_rail_stations(station_id),
     travel_date DATE,
     departure_time TIME,
+-- =========================================================================
+-- [ LJN Temp - Ticket Type vs Passenger Type ]
+-- 說明：票種 (ticket_type: 單程/來回) 與 乘客身分 (passenger_type: 成人/敬老) 必須分開。
+-- 理由：若合併為 'single_adult' 會造成組合爆炸，難以統計與維護。
+-- 另外，User 表雖有 verified_concession，但在訂單表記錄 passenger_type 
+-- 是為了保留「這筆交易實際購買的票種快照」，因為成人也可能幫長輩代買敬老票。
+-- Description: ticket_type (single/return) and passenger_type (adult/senior) must be separate.
+-- Reason: Merging them creates a combinatorial explosion and breaks normalization.
+-- Also, recording passenger_type snapshots the transaction, 
+-- since an adult user could buy a senior ticket for a family member.
+-- =========================================================================
     ticket_type VARCHAR(20),
+-- =========================================================================
+-- [ LJN Temp - Passenger Type Check & Gate Verification ]
+-- 說明：1. 加上 CHECK 約束，防止前端寫入錯字 (如 'adul') 造成髒資料。
+--      2. concession_verification_status 取代布林值，精準區分 '不需要驗證' 
+--         與 '尚未驗證' (A幫B代買的特殊票)。
+-- Description: 1. CHECK constraint prevents dirty data.
+--              2. ENUM status clarifies manual gate verification tracking.
+-- =========================================================================
+    passenger_type VARCHAR(20) DEFAULT 'adult' CHECK (passenger_type IN ('adult', 'senior', 'disabled')),
+-- =========================================================================
+-- [ LJN Temp - Interchange Tracking ]
+-- 說明：加入轉乘優惠標記與關聯行程。
+-- Description: Added flags for interchange discounts and tracking linked trips.
+-- =========================================================================
+    interchange_discount_applied BOOLEAN DEFAULT false,
+    -- Polymorphic Association: No SQL FK is used because it could link to either 'BKxxx' or 'MTxxx'.
+    -- Application logic (Python) handles the cross-network reference based on the ID prefix.
+    -- 多型關聯：不使用 SQL 外鍵，因為它可能指向火車(BK)或地鐵(MT)的訂單。交由 Python 後端依據 ID 開頭前綴來判斷跨系統關聯。
+    linked_trip_id VARCHAR(20),
     fare_class VARCHAR(20),
     coach VARCHAR(5),
     seat_id VARCHAR(10),
+    concession_verification_status VARCHAR(20) DEFAULT 'not_required' CHECK (concession_verification_status IN ('not_required', 'pending_gate_check', 'verified_at_gate')),
     stops_travelled INT,
     amount_usd NUMERIC(8,2),
     status VARCHAR(20),
@@ -317,8 +359,28 @@ CREATE TABLE IF NOT EXISTS metro_travel_history (
     origin_station_id VARCHAR(10) REFERENCES metro_stations(station_id),
     destination_station_id VARCHAR(10) REFERENCES metro_stations(station_id),
     travel_date DATE,
+-- =========================================================================
+-- [ LJN Temp - Interchange & Concession in Metro ]
+-- 說明：比照 National Rail，加入 passenger_type、轉乘優惠與關聯行程的欄位。
+-- Description: Mirrored from National Rail, added passenger_type and interchange fields.
+-- =========================================================================
     ticket_type VARCHAR(20),
+-- =========================================================================
+-- [ LJN Temp - Passenger Type Check & Gate Verification ]
+-- 說明：1. 加上 CHECK 約束，防止前端寫入錯字 (如 'adul') 造成髒資料。
+--      2. concession_verification_status 取代布林值，精準區分 '不需要驗證' 
+--         與 '尚未驗證' (A幫B代買的特殊票)。
+-- Description: 1. CHECK constraint prevents dirty data.
+--              2. ENUM status clarifies manual gate verification tracking.
+-- =========================================================================
+    passenger_type VARCHAR(20) DEFAULT 'adult' CHECK (passenger_type IN ('adult', 'senior', 'disabled')),
     day_pass_ref VARCHAR(20) REFERENCES metro_travel_history(trip_id),
+    interchange_discount_applied BOOLEAN DEFAULT false,
+    -- Polymorphic Association: No SQL FK is used because it could link to either 'BKxxx' or 'MTxxx'.
+    -- Application logic (Python) handles the cross-network reference based on the ID prefix.
+    -- 多型關聯：不使用 SQL 外鍵，因為它可能指向火車(BK)或地鐵(MT)的訂單。交由 Python 後端依據 ID 開頭前綴來判斷跨系統關聯。
+    linked_trip_id VARCHAR(20),
+    concession_verification_status VARCHAR(20) DEFAULT 'not_required' CHECK (concession_verification_status IN ('not_required', 'pending_gate_check', 'verified_at_gate')),
     stops_travelled INT,
     amount_usd NUMERIC(8,2),
     status VARCHAR(20),
@@ -345,6 +407,49 @@ CREATE TABLE IF NOT EXISTS feedback (
     submitted_at TIMESTAMP
 );
 
+-- ============================================================
+--  LOST ITEMS & PENALTIES (LJN Temp additions)
+-- ============================================================
+
+-- =========================================================================
+-- [ LJN Temp - Lost Items Status & High Value ]
+-- 說明：1. 增加 'reported' 狀態：代表失主已報失，但系統尚未尋獲。
+--      2. is_high_value：高價值物品 (大於 150 USD)。由站務員人工判斷並勾選。
+-- 理由：真實遺失物難以精確估算金額存入資料庫，由前端與站務員判斷 boolean 即可。
+-- Description: 1. Added 'reported' status for user-reported items not yet found.
+--              2. is_high_value (> 150 USD) is an operational boolean set by staff.
+-- Reason: Real lost items are hard to appraise exactly; boolean flags are better.
+-- =========================================================================
+CREATE TYPE lost_item_status AS ENUM ('reported', 'found', 'claimed', 'police', 'donated', 'destroyed', 'love_umbrella');
+
+CREATE TABLE IF NOT EXISTS lost_items (
+    item_id VARCHAR(20) PRIMARY KEY,
+    found_date TIMESTAMP, -- Can be null if it's only 'reported' by a user and not yet found
+    reported_date TIMESTAMP,
+    station_id VARCHAR(10), -- The station where it was lost or found
+    category VARCHAR(50),
+    description TEXT,
+    is_high_value BOOLEAN DEFAULT false, -- Set by staff (e.g., estimated > 150 USD)
+    has_personal_info BOOLEAN DEFAULT false,
+    status lost_item_status DEFAULT 'found',
+    expiration_date TIMESTAMP,
+    claimed_by_user VARCHAR(50) REFERENCES users(user_id),
+    claimed_date TIMESTAMP
+);
+
+CREATE TYPE penalty_status AS ENUM ('unpaid', 'paid', 'appealed');
+
+CREATE TABLE IF NOT EXISTS penalties (
+    penalty_id VARCHAR(20) PRIMARY KEY,
+    user_id VARCHAR(50) REFERENCES users(user_id),
+    violation_type VARCHAR(50) NOT NULL,
+    violation_date TIMESTAMP NOT NULL,
+    location VARCHAR(50),
+    amount_usd NUMERIC(10,2) NOT NULL,
+    status penalty_status DEFAULT 'unpaid',
+    due_date TIMESTAMP NOT NULL,
+    paid_at TIMESTAMP
+);
 
 -- ============================================================
 --  VECTOR SCHEMA  (RAG / Help Desk) — do not modify

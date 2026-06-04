@@ -494,8 +494,12 @@ def query_station_connections(station_id: str) -> list[dict]: ...
 - [ ] (example) Metro schedule stop ordering: using `jsonb_array_elements` approach — easier to debug than containment operators
 - **Policy Documents Table**: Added `policy_documents` table to store and retrieve policy documents.
 - **Penalty Fares & Lost Items Schemas**: Added `lost_items` and `penalties` schemas (drafted in `schema_LJN_temp.md`) to track specific statuses, deadlines, and violations. Why: Needed for relational state tracking beyond just RAG text lookup.
-- **Concession Fares & App Credit**: Added `is_senior_verified`, `is_disabled_verified`, and `app_credit_balance` to `registered_users`. Why: To support senior/disabled tickets and enable "Option B" (cashback refunds for interchange discounts).
-- **Interchange Discount Logic**: Added `interchange_discount_applied` and `linked_trip_id` to `metro_travel_history` instead of using a rigid foreign key constraint. Why: Allows tracking discounts while mixing Metro and Rail IDs in a flexible string field (polymorphic association).
+- **Concession Fares & App Credit**: Added `is_senior_verified`, `is_disabled_verified`, and `app_credit_balance` to `users` (previously `registered_users`). Why: To support senior/disabled tickets and wallet deductions.
+- **Interchange Discount Logic (Polymorphic Association)**: Added `interchange_discount_applied` and `linked_trip_id` to booking tables instead of using rigid SQL foreign keys. Why: Allows backend Python routing based on ID prefix (e.g. `BK` for rail, `MT` for metro).
+- **Passenger Type Constraints**: Added `CHECK (passenger_type IN ('adult', 'senior', 'disabled'))` in booking tables. Why: Prevents dirty data (like typos) from frontend bugs.
+- **Concession Gate Verification (ENUM Status)**: Changed simple boolean to `concession_verification_status` ENUM (`not_required`, `pending_gate_check`, `verified_at_gate`). Why: A boolean `false` is ambiguous (normal adult vs unverified senior). This cleanly supports third-party booking (A buys for B) while ensuring an audit trail for manual gate checks.
+- **Concurrent Wallet Deductions (Race Condition)**: Backend must use Pessimistic Locking (`SELECT ... FOR UPDATE`) when deducting `app_credit_balance`. Why: Prevents Lost Update problem when users purchase tickets simultaneously on Web and App.
+- **Currency Standardization**: Standardized all references to USD. Changed `115 GBP` high-value threshold to `150 USD` in `lost_items` comment. Why: To align with the `amount_usd` columns defined in the schema.
 
 ## Prompts That Worked
 

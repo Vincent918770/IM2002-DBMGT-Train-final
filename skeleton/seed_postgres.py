@@ -375,6 +375,7 @@ def seed_users(cur):
     user_columns = [
         "user_id", "full_name", "email", "phone",
         "date_of_birth", "registered_at", "is_active",
+        "verified_concession", "app_credit_balance"
     ]
     user_rows = []
     for item in data:
@@ -386,6 +387,8 @@ def seed_users(cur):
             item.get("date_of_birth", None),
             item.get("registered_at", None),
             item.get("is_active", None),
+            item.get("verified_concession", None),
+            item.get("app_credit_balance", 0.00),
         ))
     n = insert_many(cur, "users", user_columns, user_rows)
     print(f"  users: {n} rows inserted")
@@ -420,9 +423,10 @@ def seed_national_rail_bookings(cur):
         "booking_id", "user_id", "schedule_id",
         "origin_station_id", "destination_station_id",
         "travel_date", "departure_time",
-        "ticket_type", "fare_class", "coach", "seat_id",
-        "stops_travelled", "amount_usd", "status",
-        "booked_at", "travelled_at",
+        "ticket_type", "passenger_type", "interchange_discount_applied",
+        "linked_trip_id", "fare_class", "coach", "seat_id",
+        "concession_verification_status", "stops_travelled",
+        "amount_usd", "status", "booked_at", "travelled_at",
     ]
     rows = []
     for item in data:
@@ -435,9 +439,13 @@ def seed_national_rail_bookings(cur):
             item.get("travel_date", None),
             item.get("departure_time", None),
             item.get("ticket_type", None),
+            item.get("passenger_type", "adult"),
+            item.get("interchange_discount_applied", False),
+            item.get("linked_trip_id", None),
             item.get("fare_class", None),
             item.get("coach", None),
             item.get("seat_id", None),
+            item.get("concession_verification_status", "not_required"),
             item.get("stops_travelled", None),
             item.get("amount_usd", None),
             item.get("status", None),
@@ -460,7 +468,9 @@ def seed_metro_travels(cur):
     columns = [
         "trip_id", "user_id", "schedule_id",
         "origin_station_id", "destination_station_id",
-        "travel_date", "ticket_type", "day_pass_ref",
+        "travel_date", "ticket_type", "passenger_type",
+        "day_pass_ref", "interchange_discount_applied",
+        "linked_trip_id", "concession_verification_status",
         "stops_travelled", "amount_usd", "status",
         "purchased_at", "travelled_at",
     ]
@@ -478,7 +488,11 @@ def seed_metro_travels(cur):
             item.get("destination_station_id", None),
             item.get("travel_date", None),
             item.get("ticket_type", None),
+            item.get("passenger_type", "adult"),
             item.get("day_pass_ref", None),
+            item.get("interchange_discount_applied", False),
+            item.get("linked_trip_id", None),
+            item.get("concession_verification_status", "not_required"),
             item.get("stops_travelled", None),
             item.get("amount_usd", None),
             item.get("status", None),
