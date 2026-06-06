@@ -564,3 +564,21 @@ def store_policy_document(
         with conn.cursor() as cur:
             cur.execute(sql, (title, category, content, vec_str, source_file))
             return cur.fetchone()[0]
+def query_lost_item(item_id: str) -> Optional[dict]:
+    """
+    Retrieve information about a specific lost item by its item_id.
+    """
+    with _connect() as conn:
+        with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+            cur.execute("SELECT * FROM lost_items WHERE item_id = %s;", (item_id,))
+            row = cur.fetchone()
+            return dict(row) if row else {"error": "Lost item not found."}
+
+def query_user_penalties(user_id: str) -> list[dict]:
+    """
+    Retrieve all penalty records for a specific user.
+    """
+    with _connect() as conn:
+        with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+            cur.execute("SELECT * FROM penalties WHERE user_id = %s;", (user_id,))
+            return [dict(row) for row in cur.fetchall()]

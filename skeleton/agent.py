@@ -47,6 +47,8 @@ from databases.relational.queries import (
     execute_booking,
     execute_cancellation,
     query_policy_vector_search,
+    query_lost_item,
+    query_user_penalties,
 )
 from databases.graph.queries import (
     query_shortest_route,
@@ -272,6 +274,22 @@ TOOLS = [
         },
         "required": ["station_id"],
     },
+    {
+        "name": "get_lost_item",
+        "description": "Retrieve information about a specific lost item by its ID. Use for finding status, location, or category of a lost item.",
+        "parameters": {
+            "item_id": {"type": "string", "description": "Lost item ID e.g. LI-003"},
+        },
+        "required": ["item_id"],
+    },
+    {
+        "name": "get_user_penalties",
+        "description": "Retrieve all penalty/fine records for a user. Use for checking unpaid fines, violation types, or payment status. Provide the user_id if known, otherwise it checks the logged-in user.",
+        "parameters": {
+            "user_id": {"type": "string", "description": "User ID e.g. RU01. If the user does not provide one, use their logged-in ID or leave blank if unsure."},
+        },
+        "required": [],
+    },
 ]
 
 TOOLS_SCHEMA = """\
@@ -286,7 +304,9 @@ cancel_booking(booking_id)
 get_user_bookings()
 search_policy(query)
 find_alternative_routes(origin_id, destination_id, avoid_station_id, network?)
-get_delay_ripple(station_id, hops?)"""
+get_delay_ripple(station_id, hops?)
+get_lost_item(item_id)
+get_user_penalties(user_id?)"""
 
 
 # ── Agent logic ───────────────────────────────────────────────────────────────
@@ -436,6 +456,20 @@ def _execute_tool(
                 hops=params.get("hops", 2),
             )
 
+        elif tool_name == "get_lost_item":
+            result = query_lost_item(params["item_id"])
+
+        elif tool_name == "get_user_penalties":
+            uid = params.get("user_id")
+            if not uid:
+                if not current_user_email:
+                    return json.dumps({"error": "No user ID provided and no user is currently logged in."})
+                profile = query_user_profile(current_user_email)
+                if not profile:
+                    return json.dumps({"error": "Logged in user profile not found."})
+                uid = profile["user_id"]
+            result = query_user_penalties(uid)
+
         else:
             result = {"error": f"Unknown tool: {tool_name}"}
 
@@ -582,6 +616,7 @@ USER: {current_user_email or "not logged in"}
 get_user_bookings: call (no params) when logged-in user asks about their bookings, tickets, or travel history.
 make_booking/cancel_booking: only if user is logged in.
 Route/path/journey questions: use find_route. Policy questions: use search_policy.
+Lost item queries: use get_lost_item. Penalty/fine queries: use get_user_penalties.
 Never use "" as a param value. Omit optional params if unknown.
 
 TOOLS:
@@ -600,6 +635,8 @@ Examples:
 "hello" -> {{"tool_calls": []}}
 "show my bookings" -> {{"tool_calls": [{{"name": "get_user_bookings", "params": {{}}}}]}}
 "book me a seat NR01 to NR05 on 2025-06-01" -> {{"tool_calls": [{{"name": "check_national_rail_availability", "params": {{"origin_id": "NR01", "destination_id": "NR05", "travel_date": "2025-06-01"}}}}]}}
+"where is my lost item LI-003?" -> {{"tool_calls": [{{"name": "get_lost_item", "params": {{"item_id": "LI-003"}}}}]}}
+"do I have any penalties?" -> {{"tool_calls": [{{"name": "get_user_penalties", "params": {{}}}}]}}
 
 JSON:"""
 
@@ -619,6 +656,8 @@ JSON:"""
                 "Metro fare/price/cost/how-much-does-it-cost questions → get_metro_fare. "
                 "Rail fare/cost/price questions → check_national_rail_availability then get_national_rail_fare. "
                 "Schedule/timetable/trains/services questions → check_national_rail_availability or check_metro_availability. "
+                "Lost item / found object questions → get_lost_item. "
+                "Penalty / fine / violation questions → get_user_penalties. "
                 "Only call a tool when needed. Output nothing except tool calls."
             ),
         )
