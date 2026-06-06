@@ -375,6 +375,134 @@ def update_password(email: str, new_password: str) -> bool:
     raise NotImplementedError("TODO: implement after designing your schema")
 
 
+# ── LOST ITEMS & PENALTIES ────────────────────────────────────────────────────
+
+def query_lost_items(station_id: Optional[str] = None, status: Optional[str] = None) -> list[dict]:
+    """Retrieve lost items, optionally filtered by station or status."""
+    sql = "SELECT * FROM lost_items WHERE 1=1"
+    params = []
+    if station_id:
+        sql += " AND station_id = %s"
+        params.append(station_id)
+    if status:
+        sql += " AND status = %s"
+        params.append(status)
+    sql += " ORDER BY found_date DESC"
+    
+    with _connect() as conn:
+        with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+            cur.execute(sql, tuple(params))
+            return [dict(row) for row in cur.fetchall()]
+
+
+def execute_report_lost_item(
+    item_id: str,
+    station_id: str,
+    category: str,
+    description: str,
+    is_high_value: bool = False
+) -> tuple[bool, str]:
+    """Insert a new lost item record."""
+    sql = """
+        INSERT INTO lost_items (
+            item_id, reported_date, station_id, category, 
+            description, is_high_value, status
+        ) VALUES (%s, %s, %s, %s, %s, %s, 'reported')
+    """
+    now = datetime.now(timezone.utc)
+    try:
+        with _connect() as conn:
+            with conn.cursor() as cur:
+                cur.execute(sql, (item_id, now, station_id, category, description, is_high_value))
+                return True, "Lost item reported successfully."
+    except Exception as e:
+        return False, f"Database error: {str(e)}"
+
+
+def query_user_penalties(user_id: str) -> list[dict]:
+    """Retrieve all penalties for a given user."""
+    sql = "SELECT * FROM penalties WHERE user_id = %s ORDER BY violation_date DESC"
+    with _connect() as conn:
+        with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+            cur.execute(sql, (user_id,))
+            return [dict(row) for row in cur.fetchall()]
+
+
+def execute_issue_penalty(      #可增加狀態更新--LJN
+    penalty_id: str,
+    user_id: str,
+    violation_type: str,
+    location: str,
+    amount_usd: float,
+    due_date: datetime
+) -> tuple[bool, str]:
+    """Issue a new penalty to a user."""
+    sql = """
+        INSERT INTO penalties (
+            penalty_id, user_id, violation_type, violation_date, 
+            location, amount_usd, status, due_date
+        ) VALUES (%s, %s, %s, %s, %s, %s, 'unpaid', %s)
+    """
+    now = datetime.now(timezone.utc)
+    try:
+        with _connect() as conn:
+            with conn.cursor() as cur:
+                cur.execute(sql, (penalty_id, user_id, violation_type, now, location, amount_usd, due_date))
+                return True, "Penalty issued successfully."
+    except Exception as e:
+        return False, f"Database error: {str(e)}"
+
+
+def execute_update_lost_item_status(item_id: str, new_status: str, claimed_by_user: Optional[str] = None) -> tuple[bool, str]:
+    """
+    Update the status of a lost item (e.g., from 'reported' to 'found', or 'found' to 'claimed').
+    If status is 'claimed', claimed_by_user must be provided.
+    """
+    now = datetime.now(timezone.utc)
+    sql = "UPDATE lost_items SET status = %s"
+    params = [new_status]
+    
+    if new_status == 'found':
+        sql += ", found_date = COALESCE(found_date, %s)"
+        params.append(now)
+    elif new_status == 'claimed':
+        if not claimed_by_user:
+            return False, "claimed_by_user is required when status is 'claimed'"
+        sql += ", claimed_date = %s, claimed_by_user = %s"
+        params.extend([now, claimed_by_user])
+
+    sql += " WHERE item_id = %s"
+    params.append(item_id)
+
+    try:
+        with _connect() as conn:
+            with conn.cursor() as cur:
+                cur.execute(sql, tuple(params))
+                if cur.rowcount == 0:
+                    return False, "Lost item not found."
+                return True, "Lost item status updated successfully."
+    except Exception as e:
+        return False, f"Database error: {str(e)}"
+
+
+def execute_pay_penalty(penalty_id: str) -> tuple[bool, str]:
+    """
+    Update a penalty status to 'paid' and set the paid_at timestamp.
+    """
+    now = datetime.now(timezone.utc)
+    sql = "UPDATE penalties SET status = 'paid', paid_at = %s WHERE penalty_id = %s AND status = 'unpaid'"
+    
+    try:
+        with _connect() as conn:
+            with conn.cursor() as cur:
+                cur.execute(sql, (now, penalty_id))
+                if cur.rowcount == 0:
+                    return False, "Penalty not found or already paid."
+                return True, "Penalty paid successfully."
+    except Exception as e:
+        return False, f"Database error: {str(e)}"
+
+
 # ── VECTOR / RAG QUERIES — do not modify ─────────────────────────────────────
 
 def query_policy_vector_search(embedding: list[float], top_k: int = VECTOR_TOP_K) -> list[dict]:

@@ -551,6 +551,57 @@ def seed_feedback(cur):
     print(f"  feedback: {n} rows inserted")
 
 
+def seed_lost_items(cur):
+    """寫入 lost_items 表。"""
+    data = load("lost_items.json")
+    columns = [
+        "item_id", "found_date", "reported_date", "station_id",
+        "category", "description", "is_high_value", "has_personal_info",
+        "status", "claimed_by_user", "claimed_date"
+    ]
+    rows = []
+    for item in data:
+        rows.append((
+            item.get("item_id"),
+            item.get("found_date"),
+            item.get("reported_date"),
+            item.get("station_id"),
+            item.get("category"),
+            item.get("description"),
+            item.get("is_high_value", False),
+            item.get("has_personal_info", False),
+            item.get("status", "reported"),
+            item.get("claimed_by_user"),
+            item.get("claimed_date")
+        ))
+    n = insert_many(cur, "lost_items", columns, rows)
+    print(f"  lost_items: {n} rows inserted")
+
+
+def seed_penalties(cur):
+    """寫入 penalties 表。"""
+    data = load("penalties.json")
+    columns = [
+        "penalty_id", "user_id", "violation_type", "violation_date",
+        "location", "amount_usd", "status", "due_date", "paid_at"
+    ]
+    rows = []
+    for item in data:
+        rows.append((
+            item.get("penalty_id"),
+            item.get("user_id"),
+            item.get("violation_type"),
+            item.get("violation_date"),
+            item.get("location"),
+            item.get("amount_usd"),
+            item.get("status", "unpaid"),
+            item.get("due_date"),
+            item.get("paid_at")
+        ))
+    n = insert_many(cur, "penalties", columns, rows)
+    print(f"  penalties: {n} rows inserted")
+
+
 # ── main ─────────────────────────────────────────────────────────────────────
 
 def main():
@@ -581,6 +632,8 @@ def main():
         # ── 第五層：依賴交易紀錄的後續表 ──
         seed_payments(cur)                 # payments (booking_id 無 FK 限制，但邏輯上依賴 bookings/metro_travel_history)
         seed_feedback(cur)                 # feedback (依賴 users；booking_id 無嚴格 FK)
+        seed_lost_items(cur)               # lost_items (依賴 stations, users)
+        seed_penalties(cur)                # penalties (依賴 users)
 
         conn.commit()
         print("\nAll done. Database seeded successfully.")
