@@ -103,12 +103,12 @@ def _merge_connection(session, from_id: str, to_id: str, line: str, travel_time_
         MERGE (a)-[r:CONNECTS_TO {line: $line, network: $network}]->(b)
         SET r.travel_time_min = $travel_time_min,
             r.fare = CASE
-                WHEN $network = "metro" THEN 1.0
-                ELSE toFloat($travel_time_min) * 0.35
+                WHEN $network = "metro" THEN 0.30
+                ELSE 1.50
             END,
             r.fare_first = CASE
-                WHEN $network = "metro" THEN 1.0
-                ELSE toFloat($travel_time_min) * 0.35 * 1.8
+                WHEN $network = "metro" THEN 0.30
+                ELSE 2.50
             END
         """,
         from_id=from_id,

@@ -69,7 +69,7 @@
     },
     "payment": {
       "accepted_methods": ["credit_card", "debit_card", "ewallet", "app_credit"],
-      "app_credit_rules": "App credit (wallet balance) can be used to pay for tickets. Cashback from delay compensation or interchange discounts is credited here.",
+      "app_credit_rules": "App credit (wallet balance) can be used to pay for tickets. Cashback from delay compensation is credited here.",
       "payment_timing": "Full payment is required at the time of booking.",
       "currency": "USD"
     },

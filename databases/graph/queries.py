@@ -18,9 +18,7 @@ based on the data in train-mock-data/, seed it with skeleton/seed_neo4j.py,
 then implement the query_ functions below.
 
 Functions prefixed with `query_` are called by the agent (skeleton/agent.py).
-"""
 
-"""
 TransitFlow — Neo4j Graph Database Layer (Refactored)
 =========================================
 This module handles all queries to Neo4j.
@@ -140,12 +138,21 @@ def query_cheapest_route(
     MATCH (end:Station {{station_id: $destination_id}})
     
     CALL apoc.algo.dijkstra(start, end, '{rel_type}', $weight_property)
-    YIELD path, weight AS total_fare
+    YIELD path, weight AS total_edge_fare
     
     WHERE $network = 'auto' OR ALL(r IN relationships(path) WHERE r.network = $network)
     
+    WITH path, total_edge_fare,
+         [n IN nodes(path) | coalesce(n.network, 'interchange')] AS networks
+         
+    WITH path, total_edge_fare,
+         CASE WHEN 'metro' IN networks THEN 0.80 ELSE 0.0 END AS metro_base,
+         CASE WHEN 'national_rail' IN networks THEN
+             CASE WHEN $weight_property = 'fare_first' THEN 4.00 ELSE 2.50 END
+         ELSE 0.0 END AS nr_base
+         
     RETURN
-        round(total_fare * 100) / 100 AS total_fare,
+        round((total_edge_fare + metro_base + nr_base) * 100) / 100 AS total_fare,
         [n IN nodes(path) | {{
             station_id: n.station_id,
             name: n.name,
