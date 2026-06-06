@@ -105,7 +105,7 @@ def _merge_connection(session, from_id: str, to_id: str, line: str, travel_time_
             r.fare = CASE
                 WHEN $network = "metro" THEN 1.0
                 ELSE toFloat($travel_time_min) * 0.35
-            END
+            END,
             r.fare_first = CASE
                 WHEN $network = "metro" THEN 1.0
                 ELSE toFloat($travel_time_min) * 0.35 * 1.8
