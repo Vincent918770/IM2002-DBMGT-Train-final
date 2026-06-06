@@ -17,26 +17,26 @@ import json
 import os
 import sys
 
-# 將專案根目錄加入模組搜尋路徑，讓 skeleton.config 可以正確載入
+# Add the project root to the module search path so skeleton.config can be imported correctly
 sys.path.insert(0, ".")
 
 from neo4j import GraphDatabase
 from skeleton.config import NEO4J_URI, NEO4J_USER, NEO4J_PASSWORD
 
-# 資料目錄路徑：指向 train-mock-data
+# Data directory path pointing to train-mock-data
 _DATA_DIR = os.path.normpath(
     os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "train-mock-data")
 )
 
 
 def _load(filename: str):
-    """讀取指定 JSON 檔案並回傳資料。"""
+    """Load the specified JSON file and return its data."""
     with open(os.path.join(_DATA_DIR, filename), encoding="utf-8") as f:
         return json.load(f)
 
 
 def _create_constraints(session):
-    """在 Neo4j 中建立 station_id 的唯一性約束，避免重複節點。"""
+    """Create a uniqueness constraint on station_id in Neo4j to prevent duplicate nodes."""
     session.run(
         """
         CREATE CONSTRAINT station_id_unique IF NOT EXISTS
@@ -47,7 +47,7 @@ def _create_constraints(session):
 
 
 def _merge_metro_station(session, station: dict):
-    """建立或合併地鐵站點節點，並設定相關屬性。"""
+    """Create or merge a metro station node and set its properties."""
     session.run(
         """
         MERGE (s:Station {station_id: $station_id})
@@ -75,7 +75,7 @@ def _merge_metro_station(session, station: dict):
 
 
 def _merge_rail_station(session, station: dict):
-    """建立或合併國鐵站點節點，並設定相關屬性。"""
+    """Create or merge a national rail station node and set its properties."""
     session.run(
         """
         MERGE (s:Station {station_id: $station_id})
@@ -103,7 +103,7 @@ def _merge_rail_station(session, station: dict):
 
 
 def _merge_metro_link(session, from_id: str, to_id: str, line: str, travel_time_min: int):
-    """建立或合併地鐵站點之間的 METRO_LINK 關係。"""
+    """Create or merge a METRO_LINK relationship between metro stations."""
     session.run(
         """
         MATCH (a:Station {station_id: $from_id})
@@ -121,7 +121,7 @@ def _merge_metro_link(session, from_id: str, to_id: str, line: str, travel_time_
     )
 
 def _merge_rail_link(session, from_id: str, to_id: str, line: str, travel_time_min: int):
-    """建立或合併國鐵站點之間的 RAIL_LINK 關係。"""
+    """Create or merge a RAIL_LINK relationship between national rail stations."""
     session.run(
         """
         MATCH (a:Station {station_id: $from_id})
@@ -140,7 +140,7 @@ def _merge_rail_link(session, from_id: str, to_id: str, line: str, travel_time_m
 
 
 def _merge_interchange(session, metro_id: str, rail_id: str) -> bool:
-    """建立 metro 與 national rail 之間的雙向 INTERCHANGE_TO 換乘關係。"""
+    """Create bidirectional INTERCHANGE_TO transfer relationships between metro and national rail stations."""
     result = session.run(
         """
         MATCH (m:MetroStation {station_id: $metro_id})
@@ -164,7 +164,7 @@ def _merge_interchange(session, metro_id: str, rail_id: str) -> bool:
 
 
 def _extract_interchange_pairs_from_data(metro_stations: list[dict], rail_stations: list[dict]):
-    """從 station 資料中抽取可配對的地鐵 / 國鐵換乘站。"""
+    """Extract matching metro/national rail interchange station pairs from station data."""
     pairs: list[tuple[str, str]] = []
 
     for station in metro_stations:
@@ -188,38 +188,38 @@ def _extract_interchange_pairs_from_data(metro_stations: list[dict], rail_statio
 
 
 # ==========================================
-# 主程式：以骨架為基礎，實作 TODO 內容
+# Main program: implement the TODO logic based on the skeleton
 # ==========================================
 
 def seed():
-    # 讀取兩種交通網路的原始 JSON 資料
+    # Load raw JSON data for both transit networks
     metro_stations = _load("metro_stations.json")
     rail_stations  = _load("national_rail_stations.json")
 
-    # 連線到 Neo4j
+    # Connect to Neo4j
     driver = GraphDatabase.driver(NEO4J_URI, auth=(NEO4J_USER, NEO4J_PASSWORD))
     
     try:
         with driver.session() as session:
-            # 清除現有圖資料，避免重複建立節點或關係
+            # Clear existing graph data to avoid duplicate nodes or relationships
             session.run("MATCH (n) DETACH DELETE n")
             print("  Cleared existing graph data")
             
-            # 建立約束以保證效能及資料正確性
+            # Create constraints to ensure performance and data correctness
             _create_constraints(session)
 
-            # 建立 metro 站點節點，包含站點編號、名稱、路線與換乘資訊
+            # Create metro station nodes with IDs, names, lines, and interchange info
             for station in metro_stations:
                 _merge_metro_station(session, station)
             print(f"  Created {len(metro_stations)} metro stations")
 
-            # 建立 national rail 站點節點，包含站點編號、名稱、路線與換乘資訊
+            # Create national rail station nodes with IDs, names, lines, and interchange info
             for station in rail_stations:
                 _merge_rail_station(session, station)
             print(f"  Created {len(rail_stations)} national rail stations")
 
-            # 建立地鐵站點之間的相鄰連結
-            # 每個站點資料中都包含 adjacent_stations，可用來產生路段關係
+            # Create adjacent links between metro stations
+            # Each station record includes adjacent_stations, which can generate the route relationships
             metro_links_count = 0
             for station in metro_stations:
                 for adj in station.get("adjacent_stations", []):
@@ -229,7 +229,7 @@ def seed():
                         metro_links_count += 1
             print(f"  Created {metro_links_count} metro links")
 
-            # 建立國鐵站點之間的相鄰連結
+            # Create adjacent links between national rail stations
             rail_links_count = 0
             for station in rail_stations:
                 for adj in station.get("adjacent_stations", []):
@@ -239,8 +239,8 @@ def seed():
                         rail_links_count += 1
             print(f"  Created {rail_links_count} national rail links")
 
-            # 建立地鐵與國鐵之間的換乘關係
-            # 換乘資訊由 metro_stations.json 中的相關欄位提供
+            # Create interchange relationships between metro and national rail
+            # Interchange info is provided by related fields in metro_stations.json
             interchange_pairs = _extract_interchange_pairs_from_data(metro_stations, rail_stations)
             interchange_count = 0
             for metro_id, rail_id in interchange_pairs:
@@ -249,7 +249,7 @@ def seed():
             print(f"  Created {interchange_count} metro-national rail interchange pairs")
             
     finally:
-        # 使用 try-finally 確保連線一定會關閉
+        # Use try-finally to ensure the connection is always closed
         driver.close()
 
     print("\nNeo4j graph seeded successfully.")
