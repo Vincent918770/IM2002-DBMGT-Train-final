@@ -18,9 +18,7 @@ based on the data in train-mock-data/, seed it with skeleton/seed_neo4j.py,
 then implement the query_ functions below.
 
 Functions prefixed with `query_` are called by the agent (skeleton/agent.py).
-"""
 
-"""
 TransitFlow — Neo4j Graph Database Layer (Refactored)
 =========================================
 This module handles all queries to Neo4j.
