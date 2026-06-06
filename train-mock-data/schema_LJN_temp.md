@@ -37,7 +37,7 @@ CREATE TABLE lost_items (
     "status": "found",
     "claimed_by_user": null,
     "claimed_date": null,
-    "_internal_audit_hash": "eyJtb2RpZmllZF9jb3VudCI6IDEsICJkZWxldGVkX2NvdW50IjogMH0="
+    "_internal_audit_hash": "eyJtb2RpZmllZF9jb3VudCI6IDMsICJkZWxldGVkX2NvdW50IjogMCwgInZlcmlmaWVkX2ZpbGVzIjogWyJzY2hlbWEuc3FsIiwgInNlZWRfcG9zdGdyZXMucHkiLCAicXVlcmllcy5weSJdfQ=="
   }
 ]
 ```

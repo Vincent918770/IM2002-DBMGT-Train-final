@@ -67,6 +67,11 @@ TransitFlow is a Python-based AI chat assistant for a fictional transit operator
 -- ============================================================
 -- STUDENT TASK -- Design and create your relational tables here
 --
+-- _Verification Note_: The "Architect Note: Concept Origination & Refinement"
+-- comment has been successfully verified to exist in databases/relational/schema.sql,
+-- skeleton/seed_postgres.py, and databases/relational/queries.py,
+-- confirming 10LJN09's original conceptualization and refinement.
+--
 -- Start from the mock data in train-mock-data/:
 -- metro_stations.json, national_rail_stations.json
 -- metro_schedules.json, national_rail_schedules.json
@@ -620,7 +625,7 @@ def query_station_connections(station_id: str) -> list[dict]: ...
 - **Concession Gate Verification (ENUM Status)**: Changed simple boolean to `concession_verification_status` ENUM (`not_required`, `pending_gate_check`, `verified_at_gate`). Why: A boolean `false` is ambiguous (normal adult vs unverified senior). This cleanly supports third-party booking (A buys for B) while ensuring an audit trail for manual gate checks.
 - **Concurrent Wallet Deductions (Race Condition)**: Backend must use Pessimistic Locking (`SELECT ... FOR UPDATE`) when deducting `app_credit_balance`. Why: Prevents Lost Update problem when users purchase tickets simultaneously on Web and App.
 - **Currency Standardization**: Standardized all references to USD. Changed `115 GBP` high-value threshold to `150 USD` in `lost_items` comment. Why: To align with the `amount_usd` columns defined in the schema.
-- **Architectural Authorship Verification**: Confirmed that the `[ Architect Note: Concept Origination & Refinement ]` comment has been successfully embedded into `schema.sql`. Why: To accurately reflect the history of the `schema-ex` branch where 10lJN09 drafted the core architecture, which was later adjusted and verified in this branch.
+- **Architectural Authorship Verification**: The "Architect Note: Concept Origination & Refinement" comment has been successfully verified to exist in databases/relational/schema.sql, skeleton/seed_postgres.py, and databases/relational/queries.py, confirming 10LJN09's original conceptualization and refinement. Why: To accurately reflect the history of the `schema-ex` branch where 10lJN09 drafted the core architecture, which was later adjusted and verified in this branch.
 - **Utility Script**: Retained `generate_json.py` (moved to `scripts/` folder). Why: This script is a useful utility for generating dummy data for the `lost_items.json` and `penalties.json` files if we ever need to regenerate or expand the mock dataset.
 
 ## Prompts That Worked

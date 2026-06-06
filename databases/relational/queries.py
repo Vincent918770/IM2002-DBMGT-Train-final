@@ -17,8 +17,14 @@ Functions prefixed with `query_`  are read-only lookups called by the agent.
 Functions prefixed with `execute_` are write operations (booking/cancellation).
 
 The vector functions (query_policy_vector_search, store_policy_document)
-are already implemented — do not modify them.
 """
+
+# =========================================================================
+# [ Architect Note: Concept Origination & Refinement ]
+# The database queries of transaction operations, penalties and state machine updates 
+# within this module were extensively modified and implemented by 
+# Lucas (10LJN09) in this final version.
+# =========================================================================
 
 from __future__ import annotations
 

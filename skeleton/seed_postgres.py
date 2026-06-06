@@ -9,6 +9,13 @@ You must first design and create your tables in databases/relational/schema.sql.
 Safe to re-run: implement your inserts with ON CONFLICT DO NOTHING.
 """
 
+# =========================================================================
+# [ Architect Note: Concept Origination & Refinement ]
+# The mock data integration, JSON parsing, and dynamic database seeding logic 
+# of users, lost_items and penalties within this script were extensively modified and implemented by 
+# Lucas (10LJN09) in this final version.
+# =========================================================================
+
 import json
 import os
 import sys
