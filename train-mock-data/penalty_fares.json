@@ -1,0 +1,35 @@
+{
+  "version": "1.0",
+  "last_updated": "2024-01-01",
+  "penalties": [
+    {
+      "penalty_code": "PF001",
+      "violation_type": "fare_evasion",
+      "name": "Fare Evasion / Ticketless Travel",
+      "description": "Travelling without a valid ticket or failing to tap in.",
+      "fine_amount_usd": 100.00,
+      "additional_charges": "Full single fare of the intended journey.",
+      "early_payment_discount": {
+        "eligible_days": 14,
+        "reduced_fine_usd": 50.00,
+        "notes": "If paid within 14 days via the app, the fine is reduced to $50.00 plus the full single fare."
+      }
+    },
+    {
+      "penalty_code": "PF002",
+      "violation_type": "smoking",
+      "name": "Smoking and Vaping",
+      "description": "Smoking or vaping in any indoor or outdoor station premises and train carriages.",
+      "fine_amount_usd": 50.00,
+      "enforcement": "Immediate removal from station/carriage and fixed penalty notice."
+    },
+    {
+      "penalty_code": "PF003",
+      "violation_type": "prohibited_items",
+      "name": "Carrying Prohibited Items",
+      "description": "Bringing flammable materials, hazardous chemicals, or prohibited electric vehicles (e.g., e-scooters) onto the network.",
+      "fine_amount_usd": 150.00,
+      "enforcement": "Denial of entry, confiscation of item if dangerous, and fixed penalty notice."
+    }
+  ]
+}

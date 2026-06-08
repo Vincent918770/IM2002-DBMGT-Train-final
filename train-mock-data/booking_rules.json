@@ -36,11 +36,28 @@
       },
       "age_5_to_15": {
         "discount_percent": 50,
+        "applicable_class": "standard",
         "description": "Children aged 5–15 (inclusive) pay 50% of the applicable adult fare (calculated using the same stops-based formula).",
         "proof_of_age": "Proof of age may be requested on board. A valid ID, school card, or birth certificate is accepted."
       },
       "age_16_and_over": {
         "description": "Passengers aged 16 and over pay the full adult fare."
+      }
+    },
+    "senior_fares": {
+      "age_65_and_over": {
+        "discount_percent": 50,
+        "applicable_class": "standard",
+        "description": "Passengers aged 65 and over receive a 50% discount on standard class fares.",
+        "proof_of_age": "A valid photo ID with date of birth must be presented on request."
+      }
+    },
+    "disabled_fares": {
+      "all_ages": {
+        "discount_percent": 50,
+        "applicable_class": "standard",
+        "description": "Passengers with registered disabilities receive a 50% discount. One accompanying carer also travels at 50% off.",
+        "proof_of_eligibility": "A valid disability card or medical certificate must be provided."
       }
     },
     "group_fares": {
@@ -51,7 +68,8 @@
       "not_applicable": "Group discount does not apply to first class tickets, express services, or day passes."
     },
     "payment": {
-      "accepted_methods": ["credit_card", "debit_card", "ewallet"],
+      "accepted_methods": ["credit_card", "debit_card", "ewallet", "app_credit"],
+      "app_credit_rules": "App credit (wallet balance) can be used to pay for tickets. Cashback from delay compensation or interchange discounts is credited here.",
       "payment_timing": "Full payment is required at the time of booking.",
       "currency": "USD"
     },
@@ -89,12 +107,27 @@
         "description": "Passengers aged 16 and over pay the full adult fare."
       }
     },
+    "senior_fares": {
+      "age_65_and_over": {
+        "discount_percent": 50,
+        "description": "Passengers aged 65 and over pay 50% of the calculated stops-based fare, rounded to the nearest $0.10. Day pass is available at $2.50.",
+        "proof_of_age": "A valid photo ID with date of birth must be presented on request."
+      }
+    },
+    "disabled_fares": {
+      "all_ages": {
+        "discount_percent": 50,
+        "description": "Passengers with registered disabilities pay 50% of the calculated stops-based fare, rounded to the nearest $0.10. Day pass is available at $2.50.",
+        "proof_of_eligibility": "A valid disability card or medical certificate must be provided."
+      }
+    },
     "group_fares": {
       "available": false,
       "description": "Group discounts are not available on metro services."
     },
     "payment": {
-      "accepted_methods": ["credit_card", "debit_card", "ewallet"],
+      "accepted_methods": ["credit_card", "debit_card", "ewallet", "app_credit"],
+      "app_credit_rules": "App credit (wallet balance) can be used for metro tickets.",
       "payment_timing": "Full payment is required at the time of purchase.",
       "currency": "USD"
     },
@@ -107,6 +140,7 @@
   "general_rules": {
     "valid_id": "Passengers may be asked to show a valid photo ID matching the name on the booking. Accepted IDs include national ID card, passport, and driving licence.",
     "ticket_validity": "A ticket is only valid for the service, date, and passenger named on the booking. Tickets are non-transferable.",
+    "third_party_booking": "Tickets may be booked on behalf of another person using a different account. However, if a concession ticket (e.g. senior, disabled) is booked on behalf of someone else, or if the account holder is not pre-verified, the passenger must present valid proof of eligibility to station staff for manual verification prior to travel.",
     "fraud": "Use of another person's ticket, presentation of a counterfeit ticket, or deliberate fare evasion may result in a penalty fare, removal from the service, and/or legal action.",
     "lost_tickets": "Digital tickets can be retrieved via the app at any time using the booking reference. Passengers are advised to screenshot their QR code before travel in case of connectivity issues.",
     "customer_service": "Passengers with queries or complaints may contact customer service via the in-app chat, email, or station help desks. Response time is within 2 business days.",

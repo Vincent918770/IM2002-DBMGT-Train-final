@@ -49,13 +49,15 @@
       "rule": "All other passengers must vacate priority seats immediately when requested."
     },
     "prohibited_items": [
-      "Flammable or explosive materials",
+      "Knives and sharp items: such as various types of knives, scissors, and utility knives (improperly packaged with exposed blades is a violation)",
+      "Flammable and explosive materials: gasoline, paint, turpentine/rosin water, pressurized gases, explosives, etc.",
+      "Chemical and hazardous items: corrosive liquids, highly toxic chemicals, etc.",
       "Weapons of any kind",
       "Standard (non-foldable) bicycles",
       "E-scooters and hoverboards",
       "Items emitting strong odours that may cause discomfort to other passengers"
     ],
-    "smoking_and_vaping": "Strictly prohibited on all metro carriages, platforms, and station concourses.",
+    "smoking_and_vaping": "According to the law, smoking is completely prohibited on all public transport vehicles. Indoor waiting rooms, platforms, and carriage interiors are all statutory non-smoking areas.",
     "noise": "Passengers are asked to keep noise to a considerate level. Use of personal audio devices with external speakers is not permitted."
   },
   "national_rail": {
@@ -126,12 +128,14 @@
       "priority_boarding": "Passengers with mobility difficulties are welcome to board first. Please inform platform staff."
     },
     "prohibited_items": [
-      "Flammable or explosive materials",
+      "Knives and sharp items: such as various types of knives, scissors, and utility knives (improperly packaged with exposed blades is a violation)",
+      "Flammable and explosive materials: gasoline, paint, turpentine/rosin water, pressurized gases, explosives, etc.",
+      "Chemical and hazardous items: corrosive liquids, highly toxic chemicals, etc.",
       "Weapons of any kind",
       "E-scooters and hoverboards",
       "Items emitting strong odours that may cause discomfort to other passengers"
     ],
-    "smoking_and_vaping": "Strictly prohibited on all train carriages and at all station platforms.",
+    "smoking_and_vaping": "According to the law, smoking is completely prohibited on all public transport vehicles. Indoor waiting rooms, platforms, and carriage interiors are all statutory non-smoking areas.",
     "conduct": "Passengers behaving in a manner that causes distress or danger to other passengers or staff may be removed from the train. In serious cases, the operator reserves the right to involve law enforcement."
   }
 }

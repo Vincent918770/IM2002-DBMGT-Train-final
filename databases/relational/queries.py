@@ -202,7 +202,75 @@ def query_payment_info(booking_id: str) -> Optional[dict]:
     raise NotImplementedError("TODO: implement after designing your schema")
 
 
+def query_linked_trip_details(linked_trip_id: str) -> Optional[dict]:
+    """
+    [LJN Temp] Polymorphic Association Helper.
+    Fetches the details of a previous trip, which could be either a National Rail booking
+    or a Metro travel history record, based on the ID prefix.
+    """
+    if not linked_trip_id:
+        return None
+
+    with _connect() as conn:
+        with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+            if linked_trip_id.startswith('BK'):
+                cur.execute("SELECT * FROM national_rail_bookings WHERE booking_id = %s", (linked_trip_id,))
+                row = cur.fetchone()
+                if row:
+                    return dict(row)
+            elif linked_trip_id.startswith('MT'):
+                cur.execute("SELECT * FROM metro_travel_history WHERE trip_id = %s", (linked_trip_id,))
+                row = cur.fetchone()
+                if row:
+                    return dict(row)
+            return None
+
+
 # ── TRANSACTIONAL OPERATIONS ──────────────────────────────────────────────────
+
+def execute_wallet_deduction(user_id: str, amount_usd: float) -> tuple[bool, str]:
+    """
+    [LJN Temp] Safely deduct from a user's wallet using Pessimistic Locking.
+    Prevents race conditions (Lost Update problem) if the user attempts to pay from multiple devices simultaneously.
+    """
+    if amount_usd <= 0:
+        return False, "Amount to deduct must be positive."
+
+    conn = _connect()
+    # Disable autocommit to start a transaction explicitly
+    conn.autocommit = False 
+    try:
+        with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+            # 1. Lock the row exclusively for this transaction
+            cur.execute("SELECT app_credit_balance FROM users WHERE user_id = %s FOR UPDATE", (user_id,))
+            row = cur.fetchone()
+            
+            if not row:
+                conn.rollback()
+                return False, "User not found."
+                
+            current_balance = float(row['app_credit_balance'])
+            
+            # 2. Check if sufficient balance
+            if current_balance < amount_usd:
+                conn.rollback()
+                return False, "Insufficient wallet balance."
+                
+            # 3. Deduct the amount
+            cur.execute(
+                "UPDATE users SET app_credit_balance = app_credit_balance - %s WHERE user_id = %s",
+                (amount_usd, user_id)
+            )
+            
+            # 4. Commit the transaction (releases the lock)
+            conn.commit()
+            return True, "Payment successful."
+    except Exception as e:
+        conn.rollback()
+        return False, f"Database error: {str(e)}"
+    finally:
+        conn.close()
+
 
 def execute_booking(
     user_id: str,
@@ -230,6 +298,16 @@ def execute_booking(
     Returns:
         (True, booking_dict)   on success
         (False, error_message) on failure
+        
+    IMPLEMENTATION NOTE FOR STUDENTS (LJN Temp Decisions):
+    1. Wallet Deduction (Race Condition Prevention):
+       Must use pessimistic locking `SELECT app_credit_balance FROM users WHERE user_id = %s FOR UPDATE` 
+       before checking balance and deducting, to prevent concurrent double-spending.
+    2. Polymorphic Association for Interchange:
+       If a linked_trip_id is provided, check its prefix in Python.
+       If `linked_trip_id.startswith('BK')`: query national_rail_bookings. 
+       If `linked_trip_id.startswith('MT')`: query metro_travel_history.
+       This avoids rigid SQL foreign keys and enables cross-network interchange tracking.
     """
     raise NotImplementedError("TODO: implement after designing your schema")
 
