@@ -111,8 +111,8 @@ def _merge_metro_link(session, from_id: str, to_id: str, line: str, travel_time_
         MERGE (a)-[r:METRO_LINK {line: $line}]->(b)
         SET r.travel_time_min = $travel_time_min,
             r.network = "metro",
-            r.fare = 1.0,
-            r.fare_first = 1.0
+            r.fare = 0.3,
+            r.fare_first = 0.3
         """,
         from_id=from_id,
         to_id=to_id,
@@ -129,8 +129,8 @@ def _merge_rail_link(session, from_id: str, to_id: str, line: str, travel_time_m
         MERGE (a)-[r:RAIL_LINK {line: $line}]->(b)
         SET r.travel_time_min = $travel_time_min,
             r.network = "national_rail",
-            r.fare = toFloat($travel_time_min) * 0.35,
-            r.fare_first = toFloat($travel_time_min) * 0.35 * 1.8
+            r.fare = 1.5,
+            r.fare_first = 2.7
         """,
         from_id=from_id,
         to_id=to_id,
@@ -146,11 +146,9 @@ def _merge_interchange(session, metro_id: str, rail_id: str) -> bool:
         MATCH (m:MetroStation {station_id: $metro_id})
         MATCH (r:NationalRailStation {station_id: $rail_id})
 
-        /* 修正為 INTERCHANGE_TO */
         MERGE (m)-[a:INTERCHANGE_TO]->(r)
         SET a.travel_time_min = 5, a.fare = 0.0, a.fare_first = 0.0, a.network = "interchange", a.line = "INTERCHANGE"
 
-        /* 修正為 INTERCHANGE_TO */
         MERGE (r)-[b:INTERCHANGE_TO]->(m)
         SET b.travel_time_min = 5, b.fare = 0.0, b.fare_first = 0.0, b.network = "interchange", b.line = "INTERCHANGE"
 
