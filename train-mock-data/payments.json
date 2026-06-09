@@ -38,15 +38,5 @@
   { "payment_id": "PM037", "booking_id": "MT019", "amount_usd": 2.00,  "method": "ewallet",     "status": "paid",     "paid_at": "2026-05-10T07:06:00Z" },
   { "payment_id": "PM038", "booking_id": "BK019", "amount_usd": 7.00,  "method": "credit_card", "status": "paid",     "paid_at": "2026-05-10T16:31:00Z" },
   { "payment_id": "PM039", "booking_id": "MT020", "amount_usd": 5.00,  "method": "debit_card",  "status": "paid",     "paid_at": "2026-05-12T07:31:00Z" },
-  { "payment_id": "PM040", "booking_id": "BK020", "amount_usd": 4.00,  "method": "credit_card", "status": "paid",     "paid_at": "2026-05-12T21:01:00Z" },
-  { "payment_id": "PM041", "booking_id": "BK021", "amount_usd": 15.50, "method": "app_credit",  "status": "paid",     "paid_at": "2026-05-13T08:00:00Z" },
-  { "payment_id": "PM042", "booking_id": "MT021", "amount_usd": 2.50,  "method": "app_credit",  "status": "paid",     "paid_at": "2026-05-14T09:15:00Z" },
-  { "payment_id": "PM043", "booking_id": "BK022", "amount_usd": 12.00, "method": "app_credit",  "status": "paid",     "paid_at": "2026-05-15T10:30:00Z" },
-  { "payment_id": "PM044", "booking_id": "MT022", "amount_usd": 3.00,  "method": "app_credit",  "status": "paid",     "paid_at": "2026-05-16T11:45:00Z" },
-  { "payment_id": "PM045", "booking_id": "BK023", "amount_usd": 8.50,  "method": "app_credit",  "status": "paid",     "paid_at": "2026-05-17T13:00:00Z" },
-  { "payment_id": "PM046", "booking_id": "MT023", "amount_usd": 1.40,  "method": "app_credit",  "status": "paid",     "paid_at": "2026-05-18T14:15:00Z" },
-  { "payment_id": "PM047", "booking_id": "BK024", "amount_usd": 9.00,  "method": "app_credit",  "status": "paid",     "paid_at": "2026-05-19T15:30:00Z" },
-  { "payment_id": "PM048", "booking_id": "MT024", "amount_usd": 5.00,  "method": "app_credit",  "status": "paid",     "paid_at": "2026-05-20T16:45:00Z" },
-  { "payment_id": "PM049", "booking_id": "BK025", "amount_usd": 11.50, "method": "app_credit",  "status": "paid",     "paid_at": "2026-05-21T18:00:00Z" },
-  { "payment_id": "PM050", "booking_id": "MT025", "amount_usd": 2.00,  "method": "app_credit",  "status": "paid",     "paid_at": "2026-05-22T19:15:00Z" }
+  { "payment_id": "PM040", "booking_id": "BK020", "amount_usd": 4.00,  "method": "credit_card", "status": "paid",     "paid_at": "2026-05-12T21:01:00Z" }
 ]

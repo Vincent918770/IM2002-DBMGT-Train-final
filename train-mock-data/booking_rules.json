@@ -69,7 +69,7 @@
     },
     "payment": {
       "accepted_methods": ["credit_card", "debit_card", "ewallet", "app_credit"],
-      "app_credit_rules": "App credit (wallet balance) can be used to pay for tickets. Cashback from delay compensation is credited here. App credit balances can only be increased via ticket refunds, delay compensation, or by topping up with cash at staffed ticket counters (electronic payments are not accepted for top-ups) and has a maximum balance limit of $500 USD.",
+      "app_credit_rules": "App credit (wallet balance) can be used to pay for tickets. Cashback from delay compensation is credited here. App credit balances can only be increased via ticket refunds, delay compensation, or by topping up at staffed ticket counters (electronic payments are not accepted for top-ups) and has a maximum balance limit of $250 USD.",
       "payment_timing": "Full payment is required at the time of booking.",
       "currency": "USD"
     },
@@ -127,7 +127,7 @@
     },
     "payment": {
       "accepted_methods": ["credit_card", "debit_card", "ewallet", "app_credit"],
-      "app_credit_rules": "App credit (wallet balance) can be used for metro tickets. App credit balances can only be increased via ticket refunds, delay compensation, or by topping up with cash at staffed ticket counters (electronic payments are not accepted for top-ups) and has a maximum balance limit of $500 USD.",
+      "app_credit_rules": "App credit (wallet balance) can be used for metro tickets. App credit balances can only be increased via ticket refunds, delay compensation, or by topping up at staffed ticket counters (electronic payments are not accepted for top-ups) and has a maximum balance limit of $250 USD.",
       "payment_timing": "Full payment is required at the time of purchase.",
       "currency": "USD"
     },

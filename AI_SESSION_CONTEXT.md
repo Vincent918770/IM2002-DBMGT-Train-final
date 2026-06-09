@@ -628,6 +628,7 @@ def query_station_connections(station_id: str) -> list[dict]: ...
 - **Architectural Authorship Verification**: The "Architect Note: Concept Origination & Refinement" comment has been successfully verified to exist in databases/relational/schema.sql, skeleton/seed_postgres.py, and databases/relational/queries.py, confirming 10LJN09's original conceptualization and refinement. Why: To accurately reflect the history of the `schema-ex` branch where 10lJN09 drafted the core architecture, which was later adjusted and verified in this branch.
 - **Utility Script**: Retained `generate_json.py` (moved to `scripts/` folder). Why: This script is a useful utility for generating dummy data for the `lost_items.json` and `penalties.json` files if we ever need to regenerate or expand the mock dataset.
 - **Interchange Discount Policy**: Decided to completely remove interchange discounts from the system, including removing references from policy files (`booking_rules.json`) and the graph routing implementation. Why: It added unnecessary complexity and the exact discount amount was never officially defined in the requirements.
+- **App Credit Implementation**: Decided to temporarily keep `app_credit` in the testing phase only and not implement it fully in the production logic. Why: Full implementation involves dynamically updating JSON contents, which is beyond the current scope.
 
 ## Prompts That Worked
 
