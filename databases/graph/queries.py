@@ -151,6 +151,13 @@ def query_cheapest_route(
     
     WHERE $network = 'auto' OR ALL(r IN relationships(path) WHERE r.network = $network)
     
+    WITH path, total_fare,
+         ANY(r IN relationships(path) WHERE toLower(r.network) = 'metro') AS has_metro,
+         ANY(r IN relationships(path) WHERE toLower(r.network) = 'national_rail') AS has_rail
+    WITH path, total_fare,
+         (CASE WHEN has_metro THEN 0.80 ELSE 0.0 END + 
+          CASE WHEN has_rail THEN 2.50 ELSE 0.0 END) AS base_fare
+
     RETURN
         round(total_fare * 100) / 100 AS total_fare,
         [n IN nodes(path) | {{
