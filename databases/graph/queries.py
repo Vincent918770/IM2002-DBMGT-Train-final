@@ -159,7 +159,7 @@ def query_cheapest_route(
           CASE WHEN has_rail THEN 2.50 ELSE 0.0 END) AS base_fare
 
     RETURN
-        round(total_fare * 100) / 100 AS total_fare,
+        round((total_fare + base_fare) * 100) / 100 AS total_fare,
         [n IN nodes(path) | {{
             station_id: n.station_id,
             name: n.name,
