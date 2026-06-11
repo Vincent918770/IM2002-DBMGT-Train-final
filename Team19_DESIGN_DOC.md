@@ -136,11 +136,11 @@
 - **Prompt**：請詳細解釋圖形資料庫的核心組成要素，並對比傳統關聯式資料庫。
 - **Outcome**：AI 說明圖形資料庫是基於圖論的 NoSQL，核心結構為節點（Nodes）、邊（Edges）、屬性（Properties）。它比較傳統 RDBMS 依賴 JOIN，而圖形資料庫透過指標遍歷，查詢時間更依賴於走訪節點數，而非總資料量。
 
-## 範例三
+## 範例三: Schema 設計的複合主鍵防呆 (Schema Design)
 
-- **Context**：在編寫 `seed_postgres.py` 時，我請 AI 協助完成 user_confidential 的加密內容。
-- **Prompt**：請依據專案內容與規範，幫我生成 `user_confidential` 的加密內容。
-- **Outcome**：
+- **Context**：在設計 schema.sql 時，我正在處理捷運班表與停靠站的中介表 metro_schedule_stops。
+- **Prompt**：在 SQL 中，我要怎麼確保同一個 schedule_id (班次) 絕對不會重複停靠同一個 station_id (車站)？
+- **Outcome**：AI 建議我不要使用傳統的 SERIAL 作為主鍵，而是將 (schedule_id, station_id) 設定為「複合主鍵 (Composite Primary Key)」。我將這個建議實作進我的程式碼中，這讓資料庫能在底層直接阻擋重複寫入的髒資料，大幅提升了資料完整性。
 
 
 # Section 6 — Reflection & Trade-offs (系統反思與設計取捨)
