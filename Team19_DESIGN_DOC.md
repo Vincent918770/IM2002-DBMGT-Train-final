@@ -1,6 +1,6 @@
 # Section 1 — Entity-Relational Diagram
 
-（此處可放 ER 圖或設計說明）
+![TransitFlow ER Diagram](<./Group19-Entity-Relationship Diagram.png>)
 
 # Section 2 — Normalisation Justification (正規化與設計決策)
 
