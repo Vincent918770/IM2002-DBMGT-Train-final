@@ -50,10 +50,10 @@ def close_driver():
 def example_count_nodes() -> int:
     """Example: count all nodes currently in the graph."""
     # Example function: show how to use a Neo4j session for a simple query
-    driver = _get_driver()
-    with driver.session() as session:
-        result = session.run("MATCH (n) RETURN count(n) AS total")
-        return result.single()["total"]
+    with _driver() as driver:
+        with driver.session() as session:
+            result = session.run("MATCH (n) RETURN count(n) AS total")
+            return result.single()["total"]
 
 
 def _format_route(record, origin_id, destination_id, value_key, output_key):
@@ -213,11 +213,12 @@ def query_alternative_routes(
     """
     Find alternative routes while avoiding a closed station and its interchange counterpart.
     """
+    # Convert station IDs to uppercase to ensure consistent matching
     origin_id = origin_id.upper()
     destination_id = destination_id.upper()
     avoid_station_id = avoid_station_id.upper()
 
-    
+    # For known interchange stations, avoid routing through the corresponding interchange counterpart
     interchange_counterparts = {
         "NR01": "MS01", "MS01": "NR01",
         "NR03": "MS07", "MS07": "NR03",
@@ -228,6 +229,14 @@ def query_alternative_routes(
     if avoid_station_id in interchange_counterparts:
         avoid_ids.append(interchange_counterparts[avoid_station_id])
 
+    rel_type = "METRO_LINK|RAIL_LINK" if network != "auto" else "METRO_LINK|RAIL_LINK|INTERCHANGE_TO"
+
+    cypher = f"""
+    MATCH (start:Station {{station_id: $origin_id}})
+    MATCH (end:Station {{station_id: $destination_id}})
+    
+    CALL apoc.algo.allSimplePaths(start, end, '{rel_type}', 8)
+    YIELD path
     
     cypher = """
     MATCH (start:Station {station_id: $origin_id})
@@ -370,7 +379,7 @@ def query_delay_ripple(delayed_station_id: str, hops: int = 2) -> list[dict]:
     MATCH (start:Station {station_id: $delayed_station_id})
     CALL apoc.path.expandConfig(start, {
         relationshipFilter: "METRO_LINK|RAIL_LINK|INTERCHANGE_TO",
-        minLevel: 0,
+        minLevel: 1,
         maxLevel: $hops,
         uniqueness: "NODE_GLOBAL"
     })
