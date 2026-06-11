@@ -229,15 +229,6 @@ def query_alternative_routes(
     if avoid_station_id in interchange_counterparts:
         avoid_ids.append(interchange_counterparts[avoid_station_id])
 
-    rel_type = "METRO_LINK|RAIL_LINK" if network != "auto" else "METRO_LINK|RAIL_LINK|INTERCHANGE_TO"
-
-    cypher = f"""
-    MATCH (start:Station {{station_id: $origin_id}})
-    MATCH (end:Station {{station_id: $destination_id}})
-    
-    CALL apoc.algo.allSimplePaths(start, end, '{rel_type}', 8)
-    YIELD path
-    
     cypher = """
     MATCH (start:Station {station_id: $origin_id})
     MATCH (end:Station {station_id: $destination_id})
