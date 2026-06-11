@@ -292,7 +292,7 @@ def query_available_seats(
         List of dicts: {seat_id, coach, row, column}
     """
     sql = """
-        SELECT 
+        SELECT DISTINCT
             s.seat_id,
             c.coach_name AS coach,
             s.row_num AS row,
