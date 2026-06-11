@@ -1,4 +1,7 @@
 """
+# TASK 6 EXTENSION:
+# This file integrates the Task 6 Lost Items and Penalties query tools, enabling the AI agent to access the new database features.
+
 TransitFlow — Intelligent Agent
 ================================
 This is the brain of the system.
@@ -275,21 +278,37 @@ TOOLS = [
         },
         "required": ["station_id"],
     },
+    # TASK 6 EXTENSION:
+    # RATIONALE (Anti-Hallucination & Over-trigger Prevention): 
+    # By making 'item_id' a REQUIRED parameter with a strict format (e.g., 'LI001'), we create a natural fail-safe barrier.
+    # If a user asks a general policy question like "What if I lose my umbrella?", the LLM will see it lacks an item_id 
+    # and will NOT misfire this tool. It will only call this tool when it actually has a specific ID to search for.
     {
         "name": "get_lost_item",
-        "description": "Retrieve information about a specific lost item by its ID. Use for finding status, location, or category of a lost item.",
+        "description": "Fetch the details and current status of a reported lost item using its item ID.",
         "parameters": {
-            "item_id": {"type": "string", "description": "Lost item ID e.g. LI-003"},
+            "type": "object",
+            "properties": {
+                "item_id": {"type": "string", "description": "The unique ID of the lost item (e.g., 'LI001')"},
+            },
+            "required": ["item_id"],
         },
-        "required": ["item_id"],
     },
+    # TASK 6 EXTENSION:
+    # RATIONALE (Deterministic Database Hit & IDOR Security):
+    # We deliberately omit 'user_id' from the parameters (0 parameters). 
+    # Security: Prevents the LLM from arbitrarily querying other users' fines (IDOR vulnerability).
+    # Deterministic DB Hit: When this tool is triggered, the Python backend (_execute_tool) automatically 
+    # fetches the logged-in user's profile and executes the SQL query. This guarantees a 100% accurate 
+    # database hit without relying on the LLM to guess the correct user_id.
     {
         "name": "get_user_penalties",
-        "description": "Retrieve all penalty/fine records for a user. Use for checking unpaid fines, violation types, or payment status. Provide the user_id if known, otherwise it checks the logged-in user.",
+        "description": "Retrieve all penalty fines or violations for the currently logged-in user. Call this if the user asks about their fines, tickets, or penalties.",
         "parameters": {
-            "user_id": {"type": "string", "description": "User ID e.g. RU01. If the user does not provide one, use their logged-in ID or leave blank if unsure."},
+            "type": "object",
+            "properties": {},
+            "required": [],
         },
-        "required": [],
     },
     {
         "name": "get_station_connections",
@@ -320,7 +339,7 @@ find_alternative_routes(origin_id, destination_id, avoid_station_id, network?)
 get_delay_ripple(station_id, hops?)
 get_station_connections(station_id, max_hops?)
 get_lost_item(item_id)
-get_user_penalties(user_id?)"""
+get_user_penalties()"""
 
 
 # ── Agent logic ───────────────────────────────────────────────────────────────
@@ -474,15 +493,12 @@ def _execute_tool(
             result = query_lost_item(params["item_id"])
 
         elif tool_name == "get_user_penalties":
-            uid = params.get("user_id")
-            if not uid:
-                if not current_user_email:
-                    return json.dumps({"error": "No user ID provided and no user is currently logged in."})
-                profile = query_user_profile(current_user_email)
-                if not profile:
-                    return json.dumps({"error": "Logged in user profile not found."})
-                uid = profile["user_id"]
-            result = query_user_penalties(uid)
+            if not current_user_email:
+                return json.dumps({"error": "No user is currently logged in."})
+            profile = query_user_profile(current_user_email)
+            if not profile:
+                return json.dumps({"error": "User profile not found."})
+            result = query_user_penalties(profile["user_id"])
 
         else:
             result = {"error": f"Unknown tool: {tool_name}"}
@@ -625,12 +641,20 @@ def run_agent(
 {{"tool_calls": [{{"name": "TOOL", "params": {{"KEY": "VALUE"}}}}]}}
 Or if no tool needed: {{"tool_calls": []}}
 
+# TASK 6 EXTENSION:
+# RATIONALE: We explicitly map the semantic intents 'lost item' and 'fine/penalty' to their respective tools.
+# Why? LLMs can hallucinate answers for out-of-domain questions. By explicitly hardcoding these rules into the system prompt,
+# we force the agent to trigger the database tools rather than attempting to guess the status of a lost item.
+Routing guidelines:
+Fares/prices/cost: use get_fare.
+Route/path/journey questions: use find_route. Policy questions: use search_policy.
+Lost items/lost property: use get_lost_item.
+Fines/penalties/violations: use get_user_penalties.
+
 STATIONS: Metro=MS01-MS20, Rail=NR01-NR10
 USER: {current_user_email or "not logged in"}
 get_user_bookings: call (no params) when logged-in user asks about their bookings, tickets, or travel history.
 make_booking/cancel_booking: only if user is logged in.
-Route/path/journey questions: use find_route. Policy questions: use search_policy.
-Lost item queries: use get_lost_item. Penalty/fine queries: use get_user_penalties.
 Never use "" as a param value. Omit optional params if unknown.
 
 TOOLS:

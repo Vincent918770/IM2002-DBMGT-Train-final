@@ -409,7 +409,7 @@ def query_delay_ripple(delayed_station_id: str, hops: int = 2) -> list[dict]:
 
 # ── STATION CONNECTIONS (Native Cypher is optimal here) ───────────────────────
 
-def query_station_connections(station_id: str) -> list[dict]:
+def query_station_connections(station_id: str, max_hops: int = 1) -> list[dict]:
     """List all direct connections from a given station."""
     # Query direct neighbor connections from the target station
     cypher = """
