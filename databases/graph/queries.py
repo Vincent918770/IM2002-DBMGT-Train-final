@@ -18,9 +18,7 @@ based on the data in train-mock-data/, seed it with skeleton/seed_neo4j.py,
 then implement the query_ functions below.
 
 Functions prefixed with `query_` are called by the agent (skeleton/agent.py).
-"""
 
-"""
 TransitFlow — Neo4j Graph Database Layer (Refactored)
 =========================================
 This module handles all queries to Neo4j.
@@ -34,10 +32,19 @@ from neo4j import GraphDatabase
 from skeleton.config import NEO4J_URI, NEO4J_USER, NEO4J_PASSWORD
 
 
-def _driver():
-    """Return a Neo4j driver. Caller is responsible for closing."""
-    # Create a Neo4j driver connection; subsequent queries use this driver
-    return GraphDatabase.driver(NEO4J_URI, auth=(NEO4J_USER, NEO4J_PASSWORD))
+_driver_instance = None
+
+def _get_driver():
+    global _driver_instance
+    if _driver_instance is None:
+        _driver_instance = GraphDatabase.driver(NEO4J_URI, auth=(NEO4J_USER, NEO4J_PASSWORD))
+    return _driver_instance
+
+def close_driver():
+    global _driver_instance
+    if _driver_instance is not None:
+        _driver_instance.close()
+        _driver_instance = None
 
 
 def example_count_nodes() -> int:
@@ -106,22 +113,22 @@ def query_shortest_route(origin_id: str, destination_id: str, network: str = "au
         }}] AS legs
     """
 
-    with _driver() as driver:
-        with driver.session() as session:
-            record = session.run(
-                cypher,
-                origin_id=origin_id,
-                destination_id=destination_id,
-                network=network
-            ).single()
+    driver = _get_driver()
+    with driver.session() as session:
+        record = session.run(
+            cypher,
+            origin_id=origin_id,
+            destination_id=destination_id,
+            network=network
+        ).single()
 
-            return _format_route(
-                record=record,
-                origin_id=origin_id,
-                destination_id=destination_id,
-                value_key="total_time_min",
-                output_key="total_time_min",
-            )
+        return _format_route(
+            record=record,
+            origin_id=origin_id,
+            destination_id=destination_id,
+            value_key="total_time_min",
+            output_key="total_time_min",
+        )
 
 
 # ── CHEAPEST ROUTE (Dijkstra by fare via APOC) ───────────────────────────────
@@ -175,23 +182,23 @@ def query_cheapest_route(
         }}] AS legs
     """
 
-    with _driver() as driver:
-        with driver.session() as session:
-            record = session.run(
-                cypher,
-                origin_id=origin_id,
-                destination_id=destination_id,
-                network=network,
-                weight_property=weight_property
-            ).single()
+    driver = _get_driver()
+    with driver.session() as session:
+        record = session.run(
+            cypher,
+            origin_id=origin_id,
+            destination_id=destination_id,
+            network=network,
+            weight_property=weight_property
+        ).single()
 
-            return _format_route(
-                record=record,
-                origin_id=origin_id,
-                destination_id=destination_id,
-                value_key="total_fare",
-                output_key="total_fare_usd",
-            )
+        return _format_route(
+            record=record,
+            origin_id=origin_id,
+            destination_id=destination_id,
+            value_key="total_fare",
+            output_key="total_fare_usd",
+        )
 
 
 # ── ALTERNATIVE ROUTES (Avoid station via APOC allSimplePaths) ───────────────
@@ -202,7 +209,7 @@ def query_alternative_routes(
     avoid_station_id: str,
     network: str = "auto",
     max_routes: int = 3,
-) -> list[list[dict]]:
+) -> list[dict]:
     """
     Find alternative routes while avoiding a closed station and its interchange counterpart.
     """
@@ -231,39 +238,67 @@ def query_alternative_routes(
     CALL apoc.algo.allSimplePaths(start, end, '{rel_type}', 8)
     YIELD path
     
-    WHERE NONE(n IN nodes(path) WHERE n.station_id IN $avoid_ids)
-      AND ($network = 'auto' OR ALL(r IN relationships(path) WHERE r.network = $network))
-    
-    WITH path,
-         reduce(total = 0, r IN relationships(path) |
-            total + coalesce(r.travel_time_min, 1)
+    cypher = """
+    MATCH (start:Station {station_id: $origin_id})
+    MATCH (end:Station {station_id: $destination_id})
+
+    MATCH p = (start)-[:METRO_LINK|RAIL_LINK|INTERCHANGE_TO*1..8]-(end)
+
+    WHERE NONE(n IN nodes(p) WHERE n.station_id IN $avoid_ids)
+      AND ALL(n IN nodes(p) WHERE single(m IN nodes(p) WHERE m = n))
+
+    WITH p,
+         reduce(total = 0, r IN relationships(p) |
+             total + coalesce(r.travel_time_min, 1)
          ) AS total_time
 
-    ORDER BY total_time ASC
+    ORDER BY total_time ASC, length(p) ASC
     LIMIT $max_routes
 
     RETURN
-        [i IN range(0, length(path)-1) | {{
-            from: nodes(path)[i].station_id,
-            to: nodes(path)[i+1].station_id,
-            type: type(relationships(path)[i]),
-            line: relationships(path)[i].line,
-            network: relationships(path)[i].network,
-            travel_time_min: coalesce(relationships(path)[i].travel_time_min, 1)
-        }}] AS legs
+        total_time,
+        [n IN nodes(p) | {
+            station_id: n.station_id,
+            name: n.name,
+            network: n.network,
+            lines: n.lines
+        }] AS stations,
+        [r IN relationships(p) | {
+            from: startNode(r).station_id,
+            to: endNode(r).station_id,
+            type: type(r),
+            line: r.line,
+            network: r.network,
+            travel_time_min: coalesce(r.travel_time_min, 1)
+        }] AS legs
     """
 
-    with _driver() as driver:
-        with driver.session() as session:
-            records = session.run(
-                cypher,
-                origin_id=origin_id,
-                destination_id=destination_id,
-                avoid_ids=avoid_ids,
-                network=network,
-                max_routes=max_routes,
+    driver = _get_driver() 
+    with driver.session() as session:
+        records = session.run(
+            cypher,
+            origin_id=origin_id,
+            destination_id=destination_id,
+            avoid_ids=avoid_ids,
+            max_routes=max_routes,
+        )
+
+        
+        routes = []
+        for index, record in enumerate(records, start=1):
+            routes.append(
+                {
+                    "route_number": index,
+                    "origin_id": origin_id,
+                    "destination_id": destination_id,
+                    "avoid_station_ids": avoid_ids,
+                    "total_time_min": record["total_time"],
+                    "path": record["stations"],
+                    "stations": record["stations"],
+                    "legs": record["legs"],
+                }
             )
-            return [record["legs"] for record in records]
+        return routes
 
 
 # ── CROSS-NETWORK INTERCHANGE PATH ───────────────────────────────────────────
@@ -306,31 +341,31 @@ def query_interchange_path(origin_id: str, destination_id: str) -> dict:
         }] AS legs
     """
 
-    with _driver() as driver:
-        with driver.session() as session:
-            record = session.run(
-                cypher,
-                origin_id=origin_id,
-                destination_id=destination_id,
-            ).single()
+    driver = _get_driver()
+    with driver.session() as session:
+        record = session.run(
+            cypher,
+            origin_id=origin_id,
+            destination_id=destination_id,
+        ).single()
 
-            if record is None:
-                return {
-                    "found": False,
-                    "origin_id": origin_id,
-                    "destination_id": destination_id,
-                    "message": "No interchange path found.",
-                }
-
+        if record is None:
             return {
-                "found": True,
+                "found": False,
                 "origin_id": origin_id,
                 "destination_id": destination_id,
-                "total_time_min": record["total_time"],
-                "stations": record["stations"],
-                "interchange_points": record["interchange_points"],
-                "legs": record["legs"]
+                "message": "No interchange path found.",
             }
+
+        return {
+            "found": True,
+            "origin_id": origin_id,
+            "destination_id": destination_id,
+            "total_time_min": record["total_time"],
+            "stations": record["stations"],
+            "interchange_points": record["interchange_points"],
+            "legs": record["legs"]
+        }
 
 
 # ── DELAY RIPPLE ANALYSIS (Using APOC Expand Config) ─────────────────────────
@@ -361,24 +396,24 @@ def query_delay_ripple(delayed_station_id: str, hops: int = 2) -> list[dict]:
     ORDER BY hops_away ASC, station_id ASC
     """
 
-    with _driver() as driver:
-        with driver.session() as session:
-            records = session.run(
-                cypher,
-                delayed_station_id=delayed_station_id,
-                hops=int(hops)
-            )
+    driver = _get_driver()
+    with driver.session() as session:
+        records = session.run(
+            cypher,
+            delayed_station_id=delayed_station_id,
+            hops=int(hops)
+        )
 
-            return [
-                {
-                    "station_id": record["station_id"],
-                    "name": record["name"],
-                    "network": record["network"],
-                    "hops_away": record["hops_away"],
-                    "lines_affected": record["lines_affected"],
-                }
-                for record in records
-            ]
+        return [
+            {
+                "station_id": record["station_id"],
+                "name": record["name"],
+                "network": record["network"],
+                "hops_away": record["hops_away"],
+                "lines_affected": record["lines_affected"],
+            }
+            for record in records
+        ]
 
 
 # ── STATION CONNECTIONS (Native Cypher is optimal here) ───────────────────────
@@ -401,21 +436,21 @@ def query_station_connections(station_id: str) -> list[dict]:
     ORDER BY travel_time_min ASC, station_id ASC
     """
 
-    with _driver() as driver:
-        with driver.session() as session:
-            records = session.run(cypher, station_id=station_id)
+    driver = _get_driver()
+    with driver.session() as session:
+        records = session.run(cypher, station_id=station_id)
 
-            return [
-                {
-                    "station_id": record["station_id"],
-                    "name": record["name"],
-                    "network": record["network"],
-                    "lines": record["lines"],
-                    "relationship_type": record["relationship_type"],
-                    "line": record["line"],
-                    "connection_network": record["connection_network"],
-                    "travel_time_min": record["travel_time_min"],
-                    "fare": record["fare"],
-                }
-                for record in records
-            ]
+        return [
+            {
+                "station_id": record["station_id"],
+                "name": record["name"],
+                "network": record["network"],
+                "lines": record["lines"],
+                "relationship_type": record["relationship_type"],
+                "line": record["line"],
+                "connection_network": record["connection_network"],
+                "travel_time_min": record["travel_time_min"],
+                "fare": record["fare"],
+            }
+            for record in records
+        ]
