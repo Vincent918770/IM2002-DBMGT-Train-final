@@ -124,13 +124,13 @@
 
 # Section 5 — AI Tool Usage Evidence
 
-## 範例一
+## 範例一: 圖形資料庫匯入檢查(Schema Design)
 
 - **Context**：在大眾運輸路網圖形資料庫專案中，我寫了 `seed_neo4j.py`，將捷運與國鐵車站 JSON 原始資料匯入 Neo4j。
 - **Prompt**：請檢查 `seed_neo4j.py` 是否漏掉 JSON 資料中的關鍵欄位或轉乘關聯。
 - **Outcome**：AI 回覆程式碼未漏掉任何關鍵資料，並建議刪除不必要的 `Fallback Pairs` 部分。
 
-## 範例二
+## 範例二: 圖形資料庫概念釐清(Design Rationale)
 
 - **Context**：專案初期，我請 AI 協助了解圖形資料庫的核心概念與優勢。
 - **Prompt**：請詳細解釋圖形資料庫的核心組成要素，並對比傳統關聯式資料庫。
