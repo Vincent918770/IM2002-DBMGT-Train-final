@@ -136,11 +136,11 @@
 - **Prompt**：請詳細解釋圖形資料庫的核心組成要素，並對比傳統關聯式資料庫。
 - **Outcome**：AI 說明圖形資料庫是基於圖論的 NoSQL，核心結構為節點（Nodes）、邊（Edges）、屬性（Properties）。它比較傳統 RDBMS 依賴 JOIN，而圖形資料庫透過指標遍歷，查詢時間更依賴於走訪節點數，而非總資料量。
 
-## 範例三: Schema 設計的複合主鍵防呆 (Schema Design)
+## 範例三: 因 Prompt 沒交代預設值，導致出現 NULL 異常 (Schema Design)
 
-- **Context**：在設計 schema.sql 時，我正在處理捷運班表與停靠站的中介表 metro_schedule_stops。
-- **Prompt**：在 SQL 中，我要怎麼確保同一個 schedule_id (班次) 絕對不會重複停靠同一個 station_id (車站)？
-- **Outcome**：AI 建議我不要使用傳統的 SERIAL 作為主鍵，而是將 (schedule_id, station_id) 設定為「複合主鍵 (Composite Primary Key)」。我將這個建議實作進我的程式碼中，這讓資料庫能在底層直接阻擋重複寫入的髒資料，大幅提升了資料完整性。
+- **Context**：在設計 schema.sql 時，我需要為 users (會員) 資料表加入「註冊時間」的欄位。
+- **Prompt**：請幫我在 users 資料表中新增一個儲存註冊時間的欄位。
+- **Outcome**：因為我提問時沒有交代預設邏輯，AI 僅給出了最基本的 registration_date TIMESTAMP。在後續執行 Python 腳本新增測試會員時，我發現如果我沒有在程式碼裡手動指定時間，這個欄位就會變成 NULL (空值)。我意識到這在系統設計上很危險。因此，我拒絕了 AI 的寫法，自己將語法修改為 registration_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP，讓資料庫在建立新會員時，能自動且精準地填入當下的系統時間。
 
 ## 範例四: Schema 設計的複合主鍵防呆 (Schema Design)
 
