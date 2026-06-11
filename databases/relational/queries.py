@@ -760,9 +760,13 @@ def execute_booking(
             
             booking_dict = {
                 "booking_id": booking_id,
+                "user_id": user_id,
                 "schedule_id": schedule_id,
+                "origin_station_id": origin_station_id,
+                "destination_station_id": destination_station_id,
                 "travel_date": travel_date,
                 "departure_time": str(departure_time),
+                "fare_class": fare_class,
                 "coach": final_coach,
                 "seat_id": final_seat_id,
                 "amount_usd": amount_usd,
