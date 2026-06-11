@@ -356,9 +356,11 @@ def query_user_profile(user_email: str) -> Optional[dict]:
         SELECT 
             user_id,
             full_name,
+            full_name AS name,
             email,
             phone,
             date_of_birth,
+            EXTRACT(YEAR FROM date_of_birth) AS year_of_birth,
             registered_at,
             verified_concession,
             app_credit_balance
@@ -463,7 +465,9 @@ def query_payment_info(booking_id: str) -> Optional[dict]:
             payment_id,
             booking_id,
             amount_usd,
+            amount_usd AS amount,
             method,
+            method AS payment_method,
             status,
             paid_at
         FROM payments
@@ -897,6 +901,7 @@ def execute_cancellation(booking_id: str, user_id: str) -> tuple[bool, dict | st
             conn.commit()
             
             return True, {
+                "refund_amount": refund_amount,
                 "refund_amount_usd": refund_amount,
                 "policy_note": policy_note
             }

@@ -36,7 +36,7 @@ def run_tests():
     c3_routes = query_alternative_routes("MS01", "MS17", "MS04", "auto", 3)
     print(f"✅ C3 (避開特定站): MS01 -> MS17 (避開 MS04) | 找到 {len(c3_routes)} 條替代路線")
     if c3_routes:
-        path_names = [f"{leg['from']}->{leg['to']} ({leg['line']})" for leg in c3_routes[0]]
+        path_names = [f"{leg['from']}->{leg['to']} ({leg['line']})" for leg in c3_routes[0]['legs']]
         print(f"   最佳替代路線經過: {', '.join(path_names)}")
     print()
 

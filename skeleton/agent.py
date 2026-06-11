@@ -56,6 +56,7 @@ from databases.graph.queries import (
     query_alternative_routes,
     query_interchange_path,
     query_delay_ripple,
+    query_station_connections,
 )
 
 
@@ -290,6 +291,18 @@ TOOLS = [
         },
         "required": [],
     },
+    {
+        "name": "get_station_connections",
+        "description": (
+            "Find all stations within a given number of hops (connections) from a specific station. "
+            "Use this when the user asks which stations are N stops away, or to find adjacent stations."
+        ),
+        "parameters": {
+            "station_id": {"type": "string", "description": "Station ID e.g. MS01 or NR05"},
+            "max_hops": {"type": "integer", "description": "Maximum number of hops (default 1 for adjacent stations)"},
+        },
+        "required": ["station_id"],
+    },
 ]
 
 TOOLS_SCHEMA = """\
@@ -305,6 +318,7 @@ get_user_bookings()
 search_policy(query)
 find_alternative_routes(origin_id, destination_id, avoid_station_id, network?)
 get_delay_ripple(station_id, hops?)
+get_station_connections(station_id, max_hops?)
 get_lost_item(item_id)
 get_user_penalties(user_id?)"""
 
