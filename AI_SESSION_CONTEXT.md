@@ -627,6 +627,8 @@ def query_station_connections(station_id: str) -> list[dict]: ...
 - **Currency Standardization**: Standardized all references to USD. Changed `115 GBP` high-value threshold to `150 USD` in `lost_items` comment. Why: To align with the `amount_usd` columns defined in the schema.
 - **Architectural Authorship Verification**: The "Architect Note: Concept Origination & Refinement" comment has been successfully verified to exist in databases/relational/schema.sql, skeleton/seed_postgres.py, and databases/relational/queries.py, confirming 10LJN09's original conceptualization and refinement. Why: To accurately reflect the history of the `schema-ex` branch where 10lJN09 drafted the core architecture, which was later adjusted and verified in this branch.
 - **Utility Script**: Retained `generate_json.py` (moved to `scripts/` folder). Why: This script is a useful utility for generating dummy data for the `lost_items.json` and `penalties.json` files if we ever need to regenerate or expand the mock dataset.
+- **Interchange Discount Policy**: Decided to completely remove interchange discounts from the system, including removing references from policy files (`booking_rules.json`) and the graph routing implementation. Why: It added unnecessary complexity and the exact discount amount was never officially defined in the requirements.
+- **App Credit Implementation**: Decided to temporarily keep `app_credit` in the testing phase only and not implement it fully in the production logic. Why: Full implementation involves dynamically updating JSON contents, which is beyond the current scope.
 
 ## Prompts That Worked
 
@@ -642,6 +644,10 @@ TODO — add a prompt here after your schema design workshop
 
 ```text
 When evaluating system design choices (like database schema vs RAG, or discount application logic), please break down the analysis by proposing multiple distinct approaches (e.g., Option A vs. Option B). For each option, clearly explain the technical implications, required schema changes, and the exact timing/lifecycle of the business logic. Then, provide your explicit recommendation on which approach is best suited for our architecture, backed by specific rules from our JSON files.
+```
+
+```text
+請幫我整理可以驗證是否達成C1~C6評分標準的問題 並附上答案
 ```
 
 ### Query implementation prompt that worked:

@@ -287,7 +287,8 @@ CREATE TABLE IF NOT EXISTS national_rail_coaches (
     layout_id VARCHAR(20) REFERENCES national_rail_seat_layouts(layout_id),
     -- FK: ON DELETE RESTRICT (default).
     coach_name VARCHAR(5),
-    fare_class VARCHAR(20) CHECK (fare_class IN ('standard', 'first'))
+    fare_class VARCHAR(20) CHECK (fare_class IN ('standard', 'first')),
+    UNIQUE(layout_id, coach_name)
 );
 
 -- Note: seat_id = seat label (e.g., '12A'), row_num = row number, column_letter = A/B/C/D.

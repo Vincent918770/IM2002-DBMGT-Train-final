@@ -22,7 +22,7 @@ import time
 sys.path.insert(0, ".")
 
 from skeleton.llm_provider import llm
-from databases.relational.queries import store_policy_document
+from databases.relational.queries import store_policy_document, clear_policy_documents
 
 _DATA_DIR = os.path.normpath(
     os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "train-mock-data")
@@ -99,6 +99,9 @@ def build_documents():
 
 
 def seed():
+    print("Clearing existing policy documents...")
+    clear_policy_documents()
+    
     documents = build_documents()
     print(f"📄 Embedding {len(documents)} policy documents using {llm.chat_provider}...\n")
 
