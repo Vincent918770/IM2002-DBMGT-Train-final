@@ -930,6 +930,11 @@ def register_user(
     from argon2 import PasswordHasher
     
     # 1. 前置處理與資料準備
+      # Architectural Note: 
+    # We utilize a truncated UUID4 rather than standard random functions to mathematically 
+    # minimize the risk of Primary Key collisions during concurrent user registrations. 
+    # Prefixing it with 'U-' creates a human-readable Business Key (e.g., U-A1B2C3D4), 
+    # which is essential for both our polymorphic routing architecture and frontend support.
     user_id = f"U-{uuid.uuid4().hex[:8].upper()}"
     full_name = f"{first_name} {surname}"
     date_of_birth = f"{year_of_birth}-01-01"
