@@ -395,7 +395,7 @@ def seed_users(cur):
             item.get("registered_at", None),
             item.get("is_active", None),
             item.get("verified_concession", None),
-            item.get("app_credit_balance", 0.00),
+            item.get("app_credit_balance", 1000.00),
         ))
     n = insert_many(cur, "users", user_columns, user_rows)
     print(f"  users: {n} rows inserted")

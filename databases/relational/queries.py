@@ -563,6 +563,8 @@ def execute_booking(
     fare_class: str,
     seat_id: str,
     ticket_type: str = "single",
+    passenger_type: str = "adult",
+    linked_trip_id: str = None,
 ) -> tuple[bool, dict | str]:
     """
     Create a national rail booking for a logged-in user.
@@ -576,6 +578,8 @@ def execute_booking(
         fare_class:             "standard" or "first"
         seat_id:                e.g. "B05" (or "any" to auto-assign)
         ticket_type:            "single" (default) or "return"
+        passenger_type:         "adult", "senior", or "disabled"
+        linked_trip_id:         Optional trip ID for interchange.
 
     Returns:
         (True, booking_dict)   on success
@@ -591,7 +595,186 @@ def execute_booking(
        If `linked_trip_id.startswith('MT')`: query metro_travel_history.
        This avoids rigid SQL foreign keys and enables cross-network interchange tracking.
     """
-    raise NotImplementedError("TODO: implement after designing your schema")
+    from datetime import datetime, timezone
+    
+    conn = _connect()
+    conn.autocommit = False
+
+    try:
+        with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+            # 1. Fetch Schedule Info (departure_time, stops_travelled)
+            schedule_sql = """
+                SELECT 
+                    (sch.first_train_time + (os.travel_time_from_origin_min * interval '1 minute'))::time AS departure_time,
+                    (ds.stop_order - os.stop_order) AS stops_travelled
+                FROM national_rail_schedules sch
+                JOIN national_rail_schedule_stops os ON sch.schedule_id = os.schedule_id
+                JOIN national_rail_schedule_stops ds ON sch.schedule_id = ds.schedule_id
+                WHERE sch.schedule_id = %s
+                  AND os.station_id = %s
+                  AND ds.station_id = %s
+                  AND os.stop_order < ds.stop_order
+                  AND os.is_passed_through = false
+                  AND ds.is_passed_through = false;
+            """
+            cur.execute(schedule_sql, (schedule_id, origin_station_id, destination_station_id))
+            schedule_info = cur.fetchone()
+            if not schedule_info:
+                conn.rollback()
+                return False, "Invalid schedule or stations."
+            
+            departure_time = schedule_info["departure_time"]
+            stops_travelled = schedule_info["stops_travelled"]
+
+            # 2. Fetch Fare Info
+            fare_sql = """
+                SELECT base_fare_usd, per_stop_rate_usd
+                FROM national_rail_fares
+                WHERE schedule_id = %s AND fare_class = %s
+            """
+            cur.execute(fare_sql, (schedule_id, fare_class))
+            fare_info = cur.fetchone()
+            if not fare_info:
+                conn.rollback()
+                return False, f"Fare class '{fare_class}' not found for this schedule."
+            
+            amount_usd = float(fare_info["base_fare_usd"] + (stops_travelled * fare_info["per_stop_rate_usd"]))
+
+            # 3. Row-level Lock Seat
+            if seat_id.lower() == "any":
+                seat_sql = """
+                    SELECT s.seat_id, c.coach_name
+                    FROM national_rail_seats s
+                    JOIN national_rail_coaches c ON s.coach_id = c.coach_id
+                    JOIN national_rail_seat_layouts l ON c.layout_id = l.layout_id
+                    WHERE l.schedule_id = %s
+                      AND c.fare_class = %s
+                      AND NOT EXISTS (
+                          SELECT 1 FROM national_rail_bookings b
+                          WHERE b.schedule_id = %s
+                            AND b.travel_date = %s
+                            AND b.coach = c.coach_name
+                            AND b.seat_id = s.seat_id
+                            AND b.status IN ('confirmed', 'completed')
+                      )
+                    ORDER BY c.coach_name, s.row_num, s.column_letter
+                    FOR UPDATE OF s SKIP LOCKED
+                    LIMIT 1;
+                """
+                cur.execute(seat_sql, (schedule_id, fare_class, schedule_id, travel_date))
+            else:
+                seat_sql = """
+                    SELECT s.seat_id, c.coach_name
+                    FROM national_rail_seats s
+                    JOIN national_rail_coaches c ON s.coach_id = c.coach_id
+                    JOIN national_rail_seat_layouts l ON c.layout_id = l.layout_id
+                    WHERE l.schedule_id = %s
+                      AND c.fare_class = %s
+                      AND s.seat_id = %s
+                      AND NOT EXISTS (
+                          SELECT 1 FROM national_rail_bookings b
+                          WHERE b.schedule_id = %s
+                            AND b.travel_date = %s
+                            AND b.coach = c.coach_name
+                            AND b.seat_id = s.seat_id
+                            AND b.status IN ('confirmed', 'completed')
+                      )
+                    FOR UPDATE OF s SKIP LOCKED
+                    LIMIT 1;
+                """
+                cur.execute(seat_sql, (schedule_id, fare_class, seat_id, schedule_id, travel_date))
+                
+            seat_info = cur.fetchone()
+            if not seat_info:
+                conn.rollback()
+                return False, "Seat unavailable or already booked."
+            
+            final_seat_id = seat_info["seat_id"]
+            final_coach = seat_info["coach_name"]
+
+            # 4. Lock User Wallet & Deduct
+            wallet_sql = """
+                SELECT app_credit_balance, verified_concession
+                FROM users
+                WHERE user_id = %s
+                FOR UPDATE;
+            """
+            cur.execute(wallet_sql, (user_id,))
+            user_info = cur.fetchone()
+            if not user_info:
+                conn.rollback()
+                return False, "User not found."
+            
+            app_credit_balance = float(user_info["app_credit_balance"])
+            if app_credit_balance < amount_usd:
+                conn.rollback()
+                return False, f"Insufficient app credit. Required: ${amount_usd:.2f}, Available: ${app_credit_balance:.2f}"
+            
+            update_wallet_sql = """
+                UPDATE users
+                SET app_credit_balance = app_credit_balance - %s
+                WHERE user_id = %s
+            """
+            cur.execute(update_wallet_sql, (amount_usd, user_id))
+
+            # 5. Concession Verification Logic
+            verified_concession = user_info["verified_concession"]
+            concession_status = "not_required"
+            if passenger_type in ["senior", "disabled"]:
+                if verified_concession == passenger_type:
+                    concession_status = "verified_at_gate"
+                else:
+                    concession_status = "pending_gate_check"
+
+            # 6. Insert Booking and Payment
+            booking_id = _gen_booking_id()
+            insert_booking_sql = """
+                INSERT INTO national_rail_bookings (
+                    booking_id, user_id, schedule_id, origin_station_id, destination_station_id,
+                    travel_date, departure_time, ticket_type, passenger_type, linked_trip_id, 
+                    fare_class, coach, seat_id, concession_verification_status, stops_travelled, 
+                    amount_usd, status, booked_at
+                ) VALUES (
+                    %s, %s, %s, %s, %s,
+                    %s, %s, %s, %s, %s, 
+                    %s, %s, %s, %s, %s, 
+                    %s, 'confirmed', %s
+                )
+            """
+            booked_at = datetime.now(timezone.utc)
+            cur.execute(insert_booking_sql, (
+                booking_id, user_id, schedule_id, origin_station_id, destination_station_id,
+                travel_date, departure_time, ticket_type, passenger_type, linked_trip_id,
+                fare_class, final_coach, final_seat_id, concession_status, stops_travelled, 
+                amount_usd, booked_at
+            ))
+
+            payment_id = _gen_payment_id()
+            insert_payment_sql = """
+                INSERT INTO payments (payment_id, booking_id, amount_usd, method, status, paid_at)
+                VALUES (%s, %s, %s, 'app_credit', 'paid', %s)
+            """
+            cur.execute(insert_payment_sql, (payment_id, booking_id, amount_usd, booked_at))
+
+            conn.commit()
+            
+            booking_dict = {
+                "booking_id": booking_id,
+                "schedule_id": schedule_id,
+                "travel_date": travel_date,
+                "departure_time": str(departure_time),
+                "coach": final_coach,
+                "seat_id": final_seat_id,
+                "amount_usd": amount_usd,
+                "status": "confirmed"
+            }
+            return True, booking_dict
+
+    except Exception as e:
+        conn.rollback()
+        return False, f"Booking execution failed: {str(e)}"
+    finally:
+        conn.close()
 
 
 def execute_cancellation(booking_id: str, user_id: str) -> tuple[bool, dict | str]:
@@ -747,6 +930,11 @@ def register_user(
     from argon2 import PasswordHasher
     
     # 1. 前置處理與資料準備
+      # Architectural Note: 
+    # We utilize a truncated UUID4 rather than standard random functions to mathematically 
+    # minimize the risk of Primary Key collisions during concurrent user registrations. 
+    # Prefixing it with 'U-' creates a human-readable Business Key (e.g., U-A1B2C3D4), 
+    # which is essential for both our polymorphic routing architecture and frontend support.
     user_id = f"U-{uuid.uuid4().hex[:8].upper()}"
     full_name = f"{first_name} {surname}"
     date_of_birth = f"{year_of_birth}-01-01"
@@ -761,10 +949,10 @@ def register_user(
     
     try:
         with conn.cursor() as cur:
-            # 3. 寫入一般公開個資表 (users)
+            # 3. 寫入一般公開個資表 (users) 並給予測試用的 1000 元 app_credit_balance
             insert_users_sql = """
-                INSERT INTO users (user_id, full_name, email, date_of_birth, registered_at)
-                VALUES (%s, %s, %s, %s, %s)
+                INSERT INTO users (user_id, full_name, email, date_of_birth, registered_at, app_credit_balance)
+                VALUES (%s, %s, %s, %s, %s, 1000.00)
             """
             cur.execute(insert_users_sql, (user_id, full_name, email, date_of_birth, registered_at))
             

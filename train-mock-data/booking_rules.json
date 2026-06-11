@@ -69,7 +69,7 @@
     },
     "payment": {
       "accepted_methods": ["credit_card", "debit_card", "ewallet", "app_credit"],
-      "app_credit_rules": "App credit (wallet balance) can be used to pay for tickets. Cashback from delay compensation is credited here.",
+      "app_credit_rules": "App credit (wallet balance) can be used to pay for tickets. Cashback from delay compensation is credited here. App credit balances can only be increased via ticket refunds, delay compensation, or by topping up at staffed ticket counters (electronic payments are not accepted for top-ups) and has a maximum balance limit of $250 USD.",
       "payment_timing": "Full payment is required at the time of booking.",
       "currency": "USD"
     },
@@ -127,7 +127,7 @@
     },
     "payment": {
       "accepted_methods": ["credit_card", "debit_card", "ewallet", "app_credit"],
-      "app_credit_rules": "App credit (wallet balance) can be used for metro tickets.",
+      "app_credit_rules": "App credit (wallet balance) can be used for metro tickets. App credit balances can only be increased via ticket refunds, delay compensation, or by topping up at staffed ticket counters (electronic payments are not accepted for top-ups) and has a maximum balance limit of $250 USD.",
       "payment_timing": "Full payment is required at the time of purchase.",
       "currency": "USD"
     },
@@ -138,6 +138,7 @@
     }
   },
   "general_rules": {
+    "payment_binding": "Payment methods cannot be bound within this TransitFlow Intelligent Rail Assistant. To avoid security risks, this assistant can ONLY use 'app_credit' as the payment method. If you need to pay with other methods, please complete the payment in the official transit App.",
     "valid_id": "Passengers may be asked to show a valid photo ID matching the name on the booking. Accepted IDs include national ID card, passport, and driving licence.",
     "ticket_validity": "A ticket is only valid for the service, date, and passenger named on the booking. Tickets are non-transferable.",
     "third_party_booking": "Tickets may be booked on behalf of another person using a different account. However, if a concession ticket (e.g. senior, disabled) is booked on behalf of someone else, or if the account holder is not pre-verified, the passenger must present valid proof of eligibility to station staff for manual verification prior to travel.",
