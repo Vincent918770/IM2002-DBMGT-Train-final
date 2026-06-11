@@ -345,7 +345,7 @@ def query_delay_ripple(delayed_station_id: str, hops: int = 2) -> list[dict]:
     MATCH (start:Station {station_id: $delayed_station_id})
     CALL apoc.path.expandConfig(start, {
         relationshipFilter: "METRO_LINK|RAIL_LINK|INTERCHANGE_TO",
-        minLevel: 1,
+        minLevel: 0,
         maxLevel: $hops,
         uniqueness: "NODE_GLOBAL"
     })
