@@ -142,6 +142,11 @@
 - **Prompt**：在 SQL 中，我要怎麼確保同一個 schedule_id (班次) 絕對不會重複停靠同一個 station_id (車站)？
 - **Outcome**：AI 建議我不要使用傳統的 SERIAL 作為主鍵，而是將 (schedule_id, station_id) 設定為「複合主鍵 (Composite Primary Key)」。我將這個建議實作進我的程式碼中，這讓資料庫能在底層直接阻擋重複寫入的髒資料，大幅提升了資料完整性。
 
+## 範例四: Schema 設計的複合主鍵防呆 (Schema Design)
+
+- **Context**：在設計 schema.sql 時，我正在處理捷運班表與停靠站的中介表 metro_schedule_stops。
+- **Prompt**：在 SQL 中，我要怎麼確保同一個 schedule_id (班次) 絕對不會重複停靠同一個 station_id (車站)？
+- **Outcome**：AI 建議我不要使用傳統的 SERIAL 作為主鍵，而是將 (schedule_id, station_id) 設定為「複合主鍵 (Composite Primary Key)」。我將這個建議實作進我的程式碼中，這讓資料庫能在底層直接阻擋重複寫入的髒資料，大幅提升了資料完整性。
 
 # Section 6 — Reflection & Trade-offs (系統反思與設計取捨)
 
@@ -169,8 +174,3 @@
 - 上線架構建議：正式環境必須引入 Connection Pooler（例如 PgBouncer），透過預先建立固定連線池，讓大量短暫請求共用底層連線，維持高負載下的穩定性。
 
 # Section 7 — Optional Extension Bonus
-
-
-
-
-
