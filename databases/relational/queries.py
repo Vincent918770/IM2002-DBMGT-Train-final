@@ -1294,6 +1294,14 @@ def query_policy_vector_search(embedding: list[float], top_k: int = VECTOR_TOP_K
             return [dict(row) for row in cur.fetchall()]
 
 
+def clear_policy_documents() -> None:
+    """Clear all existing policy documents to prevent duplicates when reseeding."""
+    with _connect() as conn:
+        with conn.cursor() as cur:
+            cur.execute("TRUNCATE TABLE policy_documents RESTART IDENTITY;")
+        conn.commit()
+
+
 def store_policy_document(
     title: str,
     category: str,
