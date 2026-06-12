@@ -87,10 +87,21 @@ def query_national_rail_availability(
     Return national rail schedules that serve both origin and destination stations
     in the correct order, along with seat occupancy for the requested travel date.
 
+    This function filters schedules so that the origin stop appears before the
+    destination stop and excludes passed-through stops at both ends. When a
+    travel_date is supplied, it also counts confirmed/completed bookings on that
+    schedule for that date and subtracts them from total seat capacity.
+
     Args:
         origin_id:       e.g. "NR01"
         destination_id:  e.g. "NR05"
-        travel_date:     e.g. "2025-06-01" — used to count bookings; omit for general info
+        travel_date:     e.g. "2025-06-01" — if provided, only bookings on this
+                         date are counted for availability calculation.
+
+    Returns:
+        A list of dictionaries containing schedule metadata and computed
+        availability values such as schedule_id, line, service_type,
+        departure_time, total_seats, and available_seats.
     """
     sql = """
         WITH seat_counts AS (
@@ -172,13 +183,19 @@ def query_national_rail_fare(
     """
     Calculate the fare for a national rail journey.
 
+    This function looks up schedule-specific pricing for the requested fare
+    class and computes the total fare by adding the schedule's base fare to the
+    per-stop rate multiplied by the requested number of stops.
+
     Args:
         schedule_id:     e.g. "NR_SCH01"
         fare_class:      "standard" or "first"
-        stops_travelled: number of stops between origin and destination (inclusive)
+        stops_travelled: number of stops between origin and destination
 
     Returns:
-        dict with fare_class, base_fare_usd, per_stop_rate_usd, total_fare_usd
+        A dictionary with fare_class, base_fare_usd, per_stop_rate_usd, and
+        total_fare_usd. Returns None when the schedule or fare class is not
+        available.
     """
     sql = """
         SELECT 
@@ -203,11 +220,20 @@ def query_national_rail_fare(
 
 def query_metro_schedules(origin_id: str, destination_id: str) -> list[dict]:
     """
-    Return metro schedules that serve both origin and destination in the correct order.
+    Return metro schedules that connect the requested origin and destination.
+
+    This query returns only schedules where the origin stop occurs before the
+    destination stop in the service order. Each returned record includes the
+    computed number of stops, the estimated travel duration, and the total fare
+    for the selected route.
 
     Args:
         origin_id:       e.g. "MS01"
         destination_id:  e.g. "MS09"
+
+    Returns:
+        A list of dictionaries containing schedule metadata and computed travel
+        details for the requested stop pair.
     """
     sql = """
         SELECT 
@@ -252,12 +278,17 @@ def query_metro_fare(schedule_id: str, stops_travelled: int) -> Optional[dict]:
     """
     Calculate the metro fare for a single-ticket journey.
 
+    This helper reads the schedule's base fare and per-stop rate, then
+    computes the total amount for the requested stop count. It is intended for
+    fare estimation and payment preparation.
+
     Args:
         schedule_id:     e.g. "MS_SCH01"
         stops_travelled: number of stops between origin and destination
 
     Returns:
-        dict with base_fare_usd, per_stop_rate_usd, total_fare_usd
+        A dictionary with base_fare_usd, per_stop_rate_usd, and total_fare_usd.
+        Returns None when the schedule_id is not found.
     """
     sql = """
         SELECT 
@@ -284,7 +315,12 @@ def query_available_seats(
     fare_class: str,
 ) -> list[dict]:
     """
-    Return available seats for a national rail journey on a given date.
+    Return available seats for a national rail journey on a specific travel date.
+
+    This query inspects the seat layout for the requested schedule and fare
+    class, then removes seats that are already reserved in confirmed or
+    completed bookings for the same travel date. The results are sorted by
+    coach, row, and column for consistent seat selection.
 
     Args:
         schedule_id:  e.g. "NR_SCH01"
@@ -292,7 +328,7 @@ def query_available_seats(
         fare_class:   "standard" or "first"
 
     Returns:
-        List of dicts: {seat_id, coach, row, column}
+        A list of dictionaries containing seat_id, coach, row, and column.
     """
     sql = """
         SELECT DISTINCT
@@ -326,12 +362,19 @@ def query_available_seats(
 
 def auto_select_adjacent_seats(available_seats: list[dict], count: int) -> list[str]:
     """
-    Select `count` seats that are as close together as possible (same row preferred,
-    then adjacent rows). Returns a list of seat_ids.
+    Select `count` seats that are as close together as possible.
+
+    The ordering logic first searches for enough seats within a single row.
+    If no row has enough contiguous seats, it falls back to the natural
+    row-and-column ordering of all available seats, which effectively selects a
+    compact group.
 
     Args:
-        available_seats: output of query_available_seats()
-        count:           number of seats needed
+        available_seats: result of query_available_seats()
+        count:           number of seats required
+
+    Returns:
+        A list of selected seat_id values.
     """
     if not available_seats or count <= 0:
         return []
@@ -354,7 +397,16 @@ def auto_select_adjacent_seats(available_seats: list[dict], count: int) -> list[
 # ── USER & BOOKING QUERIES ────────────────────────────────────────────────────
 
 def query_user_profile(user_email: str) -> Optional[dict]:
-    """Return a user's profile by email."""
+    """
+    Return a user's active profile by email.
+
+    Only users with `is_active = true` are returned. This helper is used by
+    account screens and wallet views, and it intentionally omits any
+    credentials or confidential fields.
+
+    Returns:
+        A dictionary containing public user profile fields, or None if not found.
+    """
     sql = """
         SELECT 
             user_id,
@@ -381,10 +433,15 @@ def query_user_profile(user_email: str) -> Optional[dict]:
 
 def query_user_bookings(user_email: str) -> dict:
     """
-    Return a user's combined booking history (national rail + metro).
+    Return a user's combined booking history for national rail and metro.
+
+    The function performs separate queries for each transport network and
+    normalizes datetime-like fields to strings so that the returned payload is
+    easier to serialize in frontend and API responses.
 
     Returns:
-        dict with keys 'national_rail' (list) and 'metro' (list)
+        A dictionary with keys 'national_rail' and 'metro', each containing a
+        list of history records sorted by purchase/booked time.
     """
     sql_rail = """
         SELECT 
@@ -431,7 +488,7 @@ def query_user_bookings(user_email: str) -> dict:
     with _connect() as conn:
         with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
             
-            # 1. 查詢 National Rail
+            # 1. Query National Rail booking history
             cur.execute(sql_rail, (user_email,))
             rail_rows = cur.fetchall()
             
@@ -443,7 +500,7 @@ def query_user_bookings(user_email: str) -> dict:
                         row_dict[time_field] = str(row_dict[time_field])
                 rail_list.append(row_dict)
                 
-            # 2. 查詢 Metro
+            # 2. Query Metro trip history
             cur.execute(sql_metro, (user_email,))
             metro_rows = cur.fetchall()
             
@@ -462,7 +519,17 @@ def query_user_bookings(user_email: str) -> dict:
 
 
 def query_payment_info(booking_id: str) -> Optional[dict]:
-    """Return payment record for a booking or metro trip."""
+    """
+    Return the payment record associated with a booking or metro trip.
+
+    This helper fetches payment metadata including payment method, status, and
+    paid_at timestamp. It is useful for confirming completed payments and
+    showing payment details in customer service or booking summary views.
+
+    Returns:
+        A dictionary containing payment details, or None if no payment record
+        exists for the given booking_id.
+    """
     sql = """
         SELECT 
             payment_id,
@@ -792,7 +859,12 @@ def execute_cancellation(booking_id: str, user_id: str) -> tuple[bool, dict | st
     """
     Cancel a national rail booking owned by the given user.
 
-    Calculates the refund amount according to the booking's service type:
+    This function performs ownership and status validation, checks the
+    departure window relative to the current time, applies the refund policy,
+    and uses a transaction to commit both the cancellation and any wallet
+    refund together.
+
+    Refund rules:
       - Normal service: RF001 windows (100% / 75% / 50% / 0%)
       - Express service: RF002 windows (100% / 50% / 0%)
 
@@ -801,15 +873,16 @@ def execute_cancellation(booking_id: str, user_id: str) -> tuple[bool, dict | st
         user_id:    must match the booking's user_id
 
     Returns:
-        (True, result_dict)  with refund_amount_usd and policy note
-        (False, error_msg)
+        (True, result_dict) with refund_amount_usd and policy_note, or
+        (False, error_message) when cancellation is not permitted.
     """
     conn = _connect()
-    conn.autocommit = False # 關閉自動提交，開啟 Transaction
+    conn.autocommit = False # Disable autocommit to start an explicit transaction
     
     try:
         with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
-            # 1. 取得訂單與班次資訊 (並加上 FOR UPDATE 鎖定訂單，防止 Race Condition)
+            # 1. Retrieve booking and schedule information (use FOR UPDATE to
+            #    lock the booking row and prevent race conditions)
             select_sql = """
                 SELECT 
                     b.user_id,
@@ -826,7 +899,7 @@ def execute_cancellation(booking_id: str, user_id: str) -> tuple[bool, dict | st
             cur.execute(select_sql, (booking_id,))
             row = cur.fetchone()
             
-            # 2. 基礎與權限驗證
+            # 2. Basic validation and authorization checks
             if not row:
                 conn.rollback()
                 return False, "Booking not found."
@@ -839,11 +912,12 @@ def execute_cancellation(booking_id: str, user_id: str) -> tuple[bool, dict | st
                 conn.rollback()
                 return False, "Booking is already cancelled."
                 
-            # 3. 計算發車時間與時差
+            # 3. Compute departure datetime and time difference from now
             from datetime import datetime
             dt_departure = datetime.combine(row['travel_date'], row['departure_time'])
             
-            # 判斷資料庫取出的 datetime 是否帶有時區，決定用哪種現在時間來相減
+            # Decide whether the DB datetime has timezone info; choose an
+            # appropriate `now` to compute the difference.
             if dt_departure.tzinfo is None:
                 now = datetime.now()
             else:
@@ -856,7 +930,7 @@ def execute_cancellation(booking_id: str, user_id: str) -> tuple[bool, dict | st
                 conn.rollback()
                 return False, "Cannot cancel: Train has already departed."
                 
-            # 4. 退款政策計算 (依據 service_type 與 hours_before)
+            # 4. Calculate refund according to service_type and hours_before
             service_type = str(row['service_type']).lower()
             amount = float(row['amount_usd'])
             refund_amount = 0.0
@@ -890,17 +964,17 @@ def execute_cancellation(booking_id: str, user_id: str) -> tuple[bool, dict | st
                     
             refund_amount = round(refund_amount, 2)
             
-            # 5. 執行資料庫寫入操作
-            # 5.1 將訂單標記為 cancelled
+            # 5. Persist changes to the database
+            # 5.1 Mark the booking as cancelled
             update_booking_sql = "UPDATE national_rail_bookings SET status = 'cancelled' WHERE booking_id = %s"
             cur.execute(update_booking_sql, (booking_id,))
             
-            # 5.2 將退款加回使用者錢包 (如果有退款的話)
+            # 5.2 If there is a refund, credit the user's wallet
             if refund_amount > 0:
                 update_user_sql = "UPDATE users SET app_credit_balance = app_credit_balance + %s WHERE user_id = %s"
                 cur.execute(update_user_sql, (refund_amount, user_id))
                 
-            # 6. 確認交易 (Commit)
+            # 6. Commit the transaction to finalize the cancellation and refund
             conn.commit()
             
             return True, {
@@ -910,11 +984,11 @@ def execute_cancellation(booking_id: str, user_id: str) -> tuple[bool, dict | st
             }
             
     except Exception as e:
-        # 如果中途發生任何未預期的錯誤，立刻 rollback 確保資料不被破壞
+        # On unexpected error, rollback to avoid partial updates
         conn.rollback()
         return False, f"Database error: {str(e)}"
     finally:
-        # 確保連線一定會關閉並釋放資源
+        # Ensure the DB connection is closed and resources are released
         conn.close()
 
 
@@ -930,72 +1004,91 @@ def register_user(
     secret_answer: str,
 ) -> tuple[bool, str]:
     """
-    Register a new user.
-    Returns (True, user_id) on success or (False, error_message) on failure.
+    Register a new user and create both public and confidential profile records.
 
-    NOTE: passwords are stored as plain text here intentionally for teaching
-    purposes. In production, replace with a salted hash (e.g. bcrypt).
+    The function stores non-sensitive profile data in `users`, while secrets
+    such as the password hash, secret question, and secret answer are stored in
+    `users_confidential`. It also seeds the new account with a demo wallet
+    balance to enable transaction flows during testing.
+
+    Returns:
+        (True, user_id) on success, or (False, error_message) on failure.
+
+    Note:
+        Password hashing is performed using Argon2, which securely stores a
+        salted hash instead of the plaintext password.
     """
     import uuid
     from datetime import datetime, timezone
     import psycopg2.errors
     from argon2 import PasswordHasher
     
-    # 1. 前置處理與資料準備
-      # Architectural Note: 
-    # We utilize a truncated UUID4 rather than standard random functions to mathematically 
-    # minimize the risk of Primary Key collisions during concurrent user registrations. 
-    # Prefixing it with 'U-' creates a human-readable Business Key (e.g., U-A1B2C3D4), 
-    # which is essential for both our polymorphic routing architecture and frontend support.
+        # 1. Preprocessing and data preparation
+        # Architectural Note:
+        # Use a truncated UUID4 to reduce the probability of primary key collisions
+        # under concurrent registrations. The `U-` prefix yields a human-friendly
+        # business key (e.g. U-A1B2C3D4) useful for routing and debugging.
     user_id = f"U-{uuid.uuid4().hex[:8].upper()}"
     full_name = f"{first_name} {surname}"
     date_of_birth = f"{year_of_birth}-01-01"
     registered_at = datetime.now(timezone.utc)
     
-    # 2. 密碼高強度雜湊 (Argon2id)
+    # 2. High-strength password hashing (Argon2id)
+    # Always store only a salted hash (argon2) rather than plaintext passwords.
     ph = PasswordHasher()
     hashed_password = ph.hash(password)
     
     conn = _connect()
-    conn.autocommit = False # 開啟 Transaction 確保註冊過程的資料一致性
+    conn.autocommit = False # Disable autocommit to ensure the registration is atomic
     
     try:
         with conn.cursor() as cur:
-            # 3. 寫入一般公開個資表 (users) 並給予測試用的 1000 元 app_credit_balance
+            # 3. Insert public user profile into `users` and seed test wallet
+            #    with a demo balance (1000.00). This table stores non-sensitive
+            #    profile attributes that can be exposed to other services.
             insert_users_sql = """
                 INSERT INTO users (user_id, full_name, email, date_of_birth, registered_at, app_credit_balance)
                 VALUES (%s, %s, %s, %s, %s, 1000.00)
             """
             cur.execute(insert_users_sql, (user_id, full_name, email, date_of_birth, registered_at))
             
-            # 4. 寫入高度機密表 (users_confidential)
+            # 4. Insert confidential credentials into `users_confidential`.
+            #    This table stores secrets (password hash, secret question/answer)
+            #    that must never be returned in API responses.
             insert_confidential_sql = """
                 INSERT INTO users_confidential (user_id, password, secret_question, secret_answer)
                 VALUES (%s, %s, %s, %s)
             """
             cur.execute(insert_confidential_sql, (user_id, hashed_password, secret_question, secret_answer))
             
-            # 5. 兩次寫入都成功，正式 Commit
+            # 5. Commit when both inserts succeed to ensure consistency.
             conn.commit()
             return True, user_id
             
     except psycopg2.errors.UniqueViolation:
-        # 捕捉 Email 被 UNIQUE 限制擋下來的狀況
+        # Handle UNIQUE constraint violation for email (already registered).
         conn.rollback()
         return False, "Email already registered."
     except Exception as e:
-        # 捕捉其他預期外的錯誤
+        # Handle unexpected database errors and rollback to keep DB consistent.
         conn.rollback()
         return False, f"Database error: {str(e)}"
     finally:
-        # 必定關閉連線釋放資源
+        # Ensure the connection is closed and resources are released.
         conn.close()
 
 
 def login_user(email: str, password: str) -> Optional[dict]:
     """
-    Verify credentials. Returns a user dict on success or None on failure.
-    Dict keys: user_id, email, full_name, first_name, surname, phone, date_of_birth, is_active.
+    Authenticate a user by email and password.
+
+    This function verifies the supplied password against the stored Argon2 hash.
+    On success, it returns a sanitized user dictionary with the password hash
+    removed and the user's name split into first_name and surname.
+
+    Returns:
+        A dictionary containing public user profile fields on success, or None
+        when authentication fails.
     """
     from argon2 import PasswordHasher
     from argon2.exceptions import VerifyMismatchError
@@ -1018,43 +1111,50 @@ def login_user(email: str, password: str) -> Optional[dict]:
         with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
             cur.execute(sql, (email,))
             row = cur.fetchone()
-            
-            # 找不到此 Email，防範探測攻擊，直接回傳 None
+
+            # If email is not found, return None to avoid user enumeration
             if not row:
                 return None
-                
-            # 1. 高強度密碼雜湊驗證
+
+            # 1. Verify password using Argon2 (hash encodes salt and parameters)
             ph = PasswordHasher()
             try:
-                # Argon2 會自動提取 Hash 裡的 Salt 並進行比對
                 ph.verify(row['hashed_password'], password)
             except VerifyMismatchError:
-                # 密碼比對失敗，拒絕登入
+                # Password mismatch: deny access
                 return None
-                
-            # 2. 資料格式化與清洗
+
+            # 2. Prepare the user dictionary to return
             user_dict = dict(row)
-            
-            # ⚠️ 資安鐵則：絕對不能洩漏雜湊密碼，立即刪除
+
+            # SECURITY: remove password hash before returning any data
             del user_dict['hashed_password']
-            
-            # 拆分 full_name 為 first_name 與 surname
+
+            # Split full_name into first_name and surname for convenience
             full_name = user_dict.get('full_name', '')
             parts = full_name.split(' ', 1)
             user_dict['first_name'] = parts[0] if len(parts) > 0 else ''
             user_dict['surname'] = parts[1] if len(parts) > 1 else ''
-            
-            # 處理日期型態，確保後續轉 JSON 不會發生錯誤
+
+            # Normalize date_of_birth to a string for JSON serialization
             if user_dict.get('date_of_birth'):
                 user_dict['date_of_birth'] = str(user_dict['date_of_birth'])
             else:
                 user_dict['date_of_birth'] = None
-                
+
             return user_dict
 
 
 def get_user_secret_question(email: str) -> Optional[str]:
-    """Return the secret question for a registered email, or None if not found."""
+    """
+    Return the secret question associated with a registered email.
+
+    This helper supports account recovery flows by allowing the application to
+    prompt the user with their registered security question.
+
+    Returns:
+        The secret question string, or None if the email is not registered.
+    """
     sql = """
         SELECT uc.secret_question 
         FROM users u 
@@ -1067,16 +1167,25 @@ def get_user_secret_question(email: str) -> Optional[str]:
             cur.execute(sql, (email,))
             row = cur.fetchone()
             
-            # 找不到該 Email，直接回傳 None
+            # If the email is not found, return None
             if not row:
                 return None
-                
+
             return row['secret_question']
 
 
 def verify_secret_answer(email: str, answer: str) -> bool:
-    """Return True if the provided answer matches the stored secret answer (case-insensitive)."""
-    # 防呆機制：如果傳入的答案本身就是空值，直接回傳 False 拒絕驗證
+    """
+    Verify whether the supplied secret answer matches the stored answer.
+
+    The comparison is case-insensitive and trims whitespace from both values.
+    This is intended to tolerate common formatting differences while still
+    validating the user's knowledge of their registered secret answer.
+
+    Returns:
+        True when the normalized answers match, otherwise False.
+    """
+    # Guard clause: if the provided answer is empty, reject verification
     if not answer:
         return False
         
@@ -1092,29 +1201,39 @@ def verify_secret_answer(email: str, answer: str) -> bool:
             cur.execute(sql, (email,))
             row = cur.fetchone()
             
-            # 找不到該 Email，直接回傳 False
+            # If the email is not found, return False
             if not row:
                 return False
-                
+
             stored_answer = row['secret_answer']
-            
-            # 確保資料庫中的答案也不是空值
+
+            # If the stored answer is missing, reject verification
             if not stored_answer:
                 return False
-                
-            # 兩端都經過 .strip().lower() 處理，確保嚴謹又彈性的比對 (case-insensitive)
+
+            # Compare both values case-insensitively after trimming whitespace
             return answer.strip().lower() == stored_answer.strip().lower()
 
 
 def update_password(email: str, new_password: str) -> bool:
-    """Update the password for a user. Returns True if the row was updated."""
+    """
+    Update a user's password by hashing the new value and storing it securely.
+
+    This helper replaces the existing password hash in the confidential table.
+    It uses a transaction to ensure the update either commits or rolls back as a
+    unit.
+
+    Returns:
+        True when the password was updated successfully, otherwise False.
+    """
     from argon2 import PasswordHasher
     
-    # 1. 執行高強度密碼雜湊，確保新密碼安全落地
+    # 1. Hash the new password using Argon2 to ensure safe storage
     ph = PasswordHasher()
     hashed_password = ph.hash(new_password)
-    
-    # 2. 準備高效 SQL (利用子查詢由 DB 引擎內部處理對應關係)
+
+    # 2. Prepare SQL that updates the confidential table for the user
+    #    using a subquery to map email -> user_id inside the database engine.
     sql = """
         UPDATE users_confidential 
         SET password = %s 
@@ -1122,28 +1241,28 @@ def update_password(email: str, new_password: str) -> bool:
     """
     
     conn = _connect()
-    conn.autocommit = False # 開啟 Transaction 保護寫入操作
+    conn.autocommit = False # Disable autocommit to protect the write in a transaction
     
     try:
         with conn.cursor() as cur:
             cur.execute(sql, (hashed_password, email))
-            
-            # 3. 確認是否有成功觸碰到目標資料列
+
+            # 3. Check whether any row was updated; if not, the email likely doesn't exist
             if cur.rowcount > 0:
                 conn.commit()
                 return True
             else:
-                # 找不到這個 Email，因此沒有任何資料被更新
+                # No matching email -> no update performed
                 conn.rollback()
                 return False
-                
+
     except Exception:
-        # 捕捉任何預期外的錯誤，保全資料庫狀態不被破壞
+        # On unexpected errors, rollback to keep DB consistent
         conn.rollback()
         return False
-        
+
     finally:
-        # 鐵則：無論成功或失敗，連線必定要被關閉並歸還至資源池
+        # Always close the connection and release resources
         conn.close()
 
 
