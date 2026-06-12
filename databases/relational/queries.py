@@ -1,7 +1,10 @@
 """
-TransitFlow — PostgreSQL / Relational Database Layer
-=====================================================
-This module handles all queries to PostgreSQL.
+TransitFlow — Relational Database Queries
+
+# TASK 6 EXTENSION:
+# This file integrates the Task 6 Lost Items and Penalties database query functions.
+
+This module handles all communication with PostgreSQL.
 
 TWO ROLES ARE SERVED HERE:
   1. Relational  → dual-network transit (metro + national rail),
@@ -356,9 +359,11 @@ def query_user_profile(user_email: str) -> Optional[dict]:
         SELECT 
             user_id,
             full_name,
+            full_name AS name,
             email,
             phone,
             date_of_birth,
+            EXTRACT(YEAR FROM date_of_birth) AS year_of_birth,
             registered_at,
             verified_concession,
             app_credit_balance
@@ -463,7 +468,9 @@ def query_payment_info(booking_id: str) -> Optional[dict]:
             payment_id,
             booking_id,
             amount_usd,
+            amount_usd AS amount,
             method,
+            method AS payment_method,
             status,
             paid_at
         FROM payments
@@ -760,9 +767,13 @@ def execute_booking(
             
             booking_dict = {
                 "booking_id": booking_id,
+                "user_id": user_id,
                 "schedule_id": schedule_id,
+                "origin_station_id": origin_station_id,
+                "destination_station_id": destination_station_id,
                 "travel_date": travel_date,
                 "departure_time": str(departure_time),
+                "fare_class": fare_class,
                 "coach": final_coach,
                 "seat_id": final_seat_id,
                 "amount_usd": amount_usd,
@@ -893,6 +904,7 @@ def execute_cancellation(booking_id: str, user_id: str) -> tuple[bool, dict | st
             conn.commit()
             
             return True, {
+                "refund_amount": refund_amount,
                 "refund_amount_usd": refund_amount,
                 "policy_note": policy_note
             }
@@ -1137,6 +1149,10 @@ def update_password(email: str, new_password: str) -> bool:
 
 # ── LOST ITEMS & PENALTIES ────────────────────────────────────────────────────
 
+# TASK 6 EXTENSION:
+# Query Lost Items (with optional filters)
+# RATIONALE: We allow filtering by station_id and status because station staff need to 
+# query items located specifically at their station, while the system needs to filter out 'claimed' items.
 def query_lost_items(station_id: Optional[str] = None, status: Optional[str] = None) -> list[dict]:
     """Retrieve lost items, optionally filtered by station or status."""
     sql = "SELECT * FROM lost_items WHERE 1=1"
@@ -1176,9 +1192,14 @@ def execute_report_lost_item(
                 cur.execute(sql, (item_id, now, station_id, category, description, is_high_value))
                 return True, "Lost item reported successfully."
     except Exception as e:
+        # RATIONALE: We explicitly return False in the except block to avoid a false positive.
+        # This prevents the system from confirming a report when the database insertion actually failed.
         return False, f"Database error: {str(e)}"
 
-
+# TASK 6 EXTENSION:
+# Query User Penalties
+# RATIONALE: We sort by violation_date DESC so that the user and agent always see 
+# the most recent (and likely unpaid) fines first, preventing overdue penalties from being missed.
 def query_user_penalties(user_id: str) -> list[dict]:
     """Retrieve all penalties for a given user."""
     sql = "SELECT * FROM penalties WHERE user_id = %s ORDER BY violation_date DESC"
@@ -1245,6 +1266,9 @@ def execute_update_lost_item_status(item_id: str, new_status: str, claimed_by_us
         return False, f"Database error: {str(e)}"
 
 
+# RATIONALE: We enforce that a penalty can only be marked 'paid' if its current status is 'unpaid'.
+# This atomic check (AND status = 'unpaid') prevents race conditions where an appealed or already paid 
+# penalty gets paid twice by accident.
 def execute_pay_penalty(penalty_id: str) -> tuple[bool, str]:
     """
     Update a penalty status to 'paid' and set the paid_at timestamp.

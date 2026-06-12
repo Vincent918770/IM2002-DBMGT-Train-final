@@ -173,4 +173,56 @@
 - 現狀與痛點：開發階段直接與資料庫建立連線，面對尖峰高併發時，PostgreSQL 直連會迅速耗盡記憶體並觸發最大連線數限制，導致資料庫癱瘓。
 - 上線架構建議：正式環境必須引入 Connection Pooler（例如 PgBouncer），透過預先建立固定連線池，讓大量短暫請求共用底層連線，維持高負載下的穩定性。
 
-# Section 7 — Optional Extension Bonus
+# Section 7 — Optional Extension Bonus (Task 6)
+
+## 7.1 擴充功能名稱
+
+**遺失物與使用者違規罰款追蹤系統 (Lost Items & Penalties System)**
+
+## 7.2 動機 (Motivation)
+
+在真實的大眾運輸系統中，旅客遺失物品與逃票/違規行為是客服處理的大宗業務。現有的資料庫模型僅涵蓋了基本的購票與乘車行為，缺乏了異常事件的管理能力。
+透過引入 `lost_items` (遺失物) 與 `penalties` (罰金) 兩張資料表，並為它們設計專屬的狀態機 (Status Enum)，我們不僅能讓系統模擬更真實的營運場景，也大幅擴充了 AI Agent 的服務範圍。現在，AI 可以直接幫助使用者查詢遺失物進度，或提醒使用者繳納未繳清的罰款，為系統帶來實質的營運價值。
+
+## 7.3 變更說明與設計決策 (Change Description & Rationale)
+
+### Schema 變更範例
+
+我們在 `databases/relational/schema.sql` 中新增了資料表與列舉型別：
+
+```sql
+-- 透過 ENUM 嚴格控管狀態，防止無效字串寫入
+CREATE TYPE lost_item_status AS ENUM (
+    'reported', 'found', 'claimed', 'police', 'donated', 'destroyed', 'love_umbrella'
+);
+
+-- is_high_value 用於標記高價值物品（如錢包、手機），便於後續與一般物品（如雨傘）做分流處理
+CREATE TABLE IF NOT EXISTS lost_items (
+    item_id VARCHAR(20) PRIMARY KEY,
+    reported_date TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    station_id VARCHAR(10) NOT NULL,
+    category VARCHAR(50) NOT NULL,
+    description TEXT,
+    is_high_value BOOLEAN DEFAULT FALSE,
+    status lost_item_status DEFAULT 'reported',
+    found_date TIMESTAMP WITH TIME ZONE,
+    claimed_date TIMESTAMP WITH TIME ZONE,
+    claimed_by_user VARCHAR(50) REFERENCES users(user_id) ON DELETE RESTRICT
+);
+```
+
+### 設計決策與防呆機制
+
+1. **罰款與使用者的關聯 (Penalties User Association)**：我們刻意將 `penalties` 直接與 `users.user_id` 綁定，而非與訂單 `booking_id` 綁定。原因是逃票行為發生時，違規者通常「沒有」訂單紀錄。
+2. **狀態安全更新 (Atomic Updates)**：在 `execute_pay_penalty` 中，我們強制使用 `AND status = 'unpaid'` 作為更新條件，避免 race condition 導致已繳費的罰單被重複扣款。
+3. **過濾器優化 (Optimised Filtering)**：在 `query_user_penalties` 中，我們預設以 `violation_date DESC` 排序，讓最新或未繳款的罰單永遠優先呈現給 AI 與使用者。
+
+## 7.4 測試證據 (Testing Evidence)
+
+功能已成功整合至 Gradio UI 聊天機器人中，並且成功運作。
+您可以直接在 UI 中輸入以下範例指令來測試擴充功能：
+
+- **查詢遺失物**: `I lost my umbrella, my item id is LI003. Can you check its status?`
+- **查詢個人罰款**: `Do I have any unpaid fines or penalties?`
+
+_(請在此處貼上 Gradio 介面的操作截圖，展示 AI Agent 成功呼叫 `get_lost_item` 或 `get_user_penalties` 並正確回答的畫面)_
