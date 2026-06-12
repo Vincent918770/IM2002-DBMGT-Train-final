@@ -115,11 +115,19 @@
 ## Criterion 3: Embedding Dimension & Provider Switch Consequence
 
 1. **系統實作的實際維度**
-   - 我們使用 Ollama 作為嵌入模型提供商，因此，存入 `pgvector` 的向量維度為 `768`。
+   - 我們使用 Ollama 作為嵌入模型提供商，使用 nomic-embed-text 模型，因此，存入 `pgvector` 的向量維度為 `768`。
 2. **供應商切換風險**
    - 若完成 Seeding 後切換供應商，可能發生維度不匹配錯誤，導致 RAG 系統無法運作。
    - 不同供應商的嵌入向量維度各不相同，例如 Ollama 是 `768`，而 Gemini 可能是 `3072`。
    - 若資料庫已存入 `768` 維向量，卻使用 `3072` 維查詢向量計算餘弦相似度，會造成數學與型別錯誤，查詢無法執行。
+
+## Criterion 4: Scalability & Production Trade-offs (規模化與生產環境取捨)
+
+目前的 RAG 實作針對百萬向量級別以下的輕量級政策文件能良好運作，但若要擴展至超大型生產環境，就現況來說不敷使用，很可能炸掉，透過老師提供的文件，我們學到系統還需要以下架構升級：
+
+1. **分塊 (Chunking)**：目前政策文件是整份轉換為向量。若要擴展環境，應實作 Fixed-size 或 Semantic Chunking（例如每 300-500 Tokens 切塊），以提升大篇幅文件（如 Booking Rules）的相似度檢索精準性。
+2. **詮釋資料過濾 (Metadata Filtering)**：目前的查詢主要依賴純粹的向量距離 (`<=>`)。針對跨部門文件，未來應先在 SQL 加入 `WHERE category = '...'` 作為硬性前置過濾，再進行餘弦相似度比對，避免跨類別的雜訊干擾。
+3. **快取 (Embedding Cache)**：目前相同問題會重複觸發 LLM API，未來應在系統層引入 `lru_cache` 或 Redis 快取熱門查詢的 Embedding 向量，以大幅降低 API 延遲與呼叫成本。
 
 # Section 5 — AI Tool Usage Evidence
 
@@ -222,6 +230,16 @@ CREATE TABLE IF NOT EXISTS lost_items (
 您可以直接在 UI 中輸入以下範例指令來測試擴充功能：
 
 - **查詢遺失物**: `I lost my umbrella, my item id is LI003. Can you check its status?`
-- **查詢個人罰款**: `Do I have any unpaid fines or penalties?`
+  - 背後運作：AI 會呼叫 get_lost_item。
+  - 預期正確解答：AI 應該會回答：「這件物品 (Clothing/Documents) 是在 2025 年 1 月 25 日於 MS03 車站申報遺失的，目前狀態仍然是 'reported' (尚未尋獲)。」
 
-_(請在此處貼上 Gradio 介面的操作截圖，展示 AI Agent 成功呼叫 `get_lost_item` 或 `get_user_penalties` 並正確回答的畫面)_
+![Gradio 查詢遺失物的操作截圖1](./gradio_screenshot.png)
+![Gradio 查詢遺失物的操作截圖2](./gradio_screenshot-1.png)
+
+- **查詢個人罰款**: `Do I have any unpaid fines or penalties?`
+  - 前置動作：請先在左側面板登入帳號 `grace.lee@email.com` (密碼: grace1225)。
+  - 背後運作：AI 會呼叫 get_user_penalties。
+  - 預期正確解答：AI 會根據資料庫回傳的 4 筆紀錄向使用者報告：「您目前共有 4 筆違規紀錄。其中有一筆未繳納 (unpaid) 的罰單（PN-016，違規事項：抽菸，金額：$73.76 USD）。另外有兩筆正在申訴中 (appealed)（PN-012、PN-013），以及一筆已經結清 (paid) 的紀錄（PN-017）。」
+
+![Gradio 查詢罰款的操作截圖1](./gradio_screenshot-2.png)
+![Gradio 查詢罰款的操作截圖2](./gradio_screenshot-3.png)
