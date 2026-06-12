@@ -411,7 +411,7 @@ def seed_users(cur):
         # ph.hash() 會自動生成隨機 Salt 並將其與 Hash 結果封裝成單一字串，
         # 確保相同密碼會產生不同的 Hash，有效防禦彩虹表攻擊 (rainbow-table attacks)。
         hashed_password = ph.hash(raw_password) if raw_password else None
-        hashed_secret_answer = ph.hash(raw_secret_answer) if raw_secret_answer else None
+        hashed_secret_answer = ph.hash(raw_secret_answer.strip().lower()) if raw_secret_answer else None
 
         conf_rows.append((
             item.get("user_id", None),

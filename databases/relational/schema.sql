@@ -388,8 +388,8 @@ CREATE TABLE IF NOT EXISTS metro_travel_history (
 CREATE TABLE IF NOT EXISTS payments (
     payment_id VARCHAR(20) PRIMARY KEY,
     -- PK: VARCHAR business key.
-    booking_id VARCHAR(20) REFERENCES national_rail_bookings(booking_id),
-    -- FK: ON DELETE RESTRICT (default) -- payment records must persist with bookings.
+    booking_id VARCHAR(20),
+    -- No strict FK since it references either national_rail_bookings or metro_travel_history.
     amount_usd NUMERIC(8,2),
     -- NUMERIC: mandatory for monetary values per rubric.
     method VARCHAR(20),
@@ -401,8 +401,8 @@ CREATE TABLE IF NOT EXISTS payments (
 CREATE TABLE IF NOT EXISTS feedback (
     feedback_id VARCHAR(20) PRIMARY KEY,
     -- PK: VARCHAR business key.
-    booking_id VARCHAR(20) REFERENCES national_rail_bookings(booking_id),
-    -- FK: ON DELETE RESTRICT (default).
+    booking_id VARCHAR(20),
+    -- No strict FK since it references either national_rail_bookings or metro_travel_history.
     user_id VARCHAR(50) REFERENCES users(user_id),
     rating INT,
     comment TEXT,
