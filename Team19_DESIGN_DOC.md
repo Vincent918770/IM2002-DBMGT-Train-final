@@ -229,17 +229,19 @@ CREATE TABLE IF NOT EXISTS lost_items (
 功能已成功整合至 Gradio UI 聊天機器人中，並且成功運作。
 您可以直接在 UI 中輸入以下範例指令來測試擴充功能：
 
-- **查詢遺失物**: `I lost my umbrella, my item id is LI003. Can you check its status?`
+- **查詢遺失物**: `I lost my umbrella, my item id is LI-025. Can you check its status?`
   - 背後運作：AI 會呼叫 get_lost_item。
   - 預期正確解答：AI 應該會回答：「這件物品 (Clothing/Documents) 是在 2025 年 1 月 25 日於 MS03 車站申報遺失的，目前狀態仍然是 'reported' (尚未尋獲)。」
 
 ![Gradio 查詢遺失物的操作截圖1](./gradio_screenshot.png)
 ![Gradio 查詢遺失物的操作截圖2](./gradio_screenshot-1.png)
 
-- **查詢個人罰款**: `Do I have any unpaid fines or penalties?`
+- **查詢個人罰款**: `Can you list ALL my penalty and fine records, including paid and appealed ones?`
   - 前置動作：請先在左側面板登入帳號 `grace.lee@email.com` (密碼: grace1225)。
   - 背後運作：AI 會呼叫 get_user_penalties。
-  - 預期正確解答：AI 會根據資料庫回傳的 4 筆紀錄向使用者報告：「您目前共有 4 筆違規紀錄。其中有一筆未繳納 (unpaid) 的罰單（PN-016，違規事項：抽菸，金額：$73.76 USD）。另外有兩筆正在申訴中 (appealed)（PN-012、PN-013），以及一筆已經結清 (paid) 的紀錄（PN-017）。」
+  - 預期正確解答：AI 會條列出資料庫回傳的 4 筆紀錄，回應內容大意如下：「You have a total of 4 penalty records: 1. PN-016 (Smoking at MS01) - $73.76 (Status: unpaid). 2. PN-012 (Prohibited Items at MS02) - $110.37 (Status: appealed). 3. PN-013 (Fare Evasion at MS03) - $142.03 (Status: appealed). 4. PN-017 (Prohibited Items at NR01) - $77.68 (Status: paid).」
 
 ![Gradio 查詢罰款的操作截圖1](./gradio_screenshot-2.png)
 ![Gradio 查詢罰款的操作截圖2](./gradio_screenshot-3.png)
+![Gradio 查詢罰款的操作截圖3](./gradio_screenshot-4.png)
+![Gradio 查詢罰款的操作截圖4](./gradio_screenshot-5.png)

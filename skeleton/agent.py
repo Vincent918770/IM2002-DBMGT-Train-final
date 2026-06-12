@@ -287,7 +287,7 @@ TOOLS = [
         "name": "get_lost_item",
         "description": "Fetch the details and current status of a reported lost item using its item ID.",
         "parameters": {
-            "item_id": {"type": "string", "description": "The unique ID of the lost item (e.g., 'LI001')"},
+            "item_id": {"type": "string", "description": "The unique ID of the lost item (e.g., 'LI-001')"},
         },
         "required": ["item_id"],
     },
