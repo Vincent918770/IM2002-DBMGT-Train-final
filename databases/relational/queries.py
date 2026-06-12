@@ -1037,6 +1037,8 @@ def register_user(
     # Always store only a salted hash (argon2) rather than plaintext passwords.
     ph = PasswordHasher()
     hashed_password = ph.hash(password)
+    # Hash the secret answer as well, normalized to lowercase
+    hashed_secret_answer = ph.hash(secret_answer.strip().lower())
     
     conn = _connect()
     conn.autocommit = False # Disable autocommit to ensure the registration is atomic
@@ -1059,7 +1061,7 @@ def register_user(
                 INSERT INTO users_confidential (user_id, password, secret_question, secret_answer)
                 VALUES (%s, %s, %s, %s)
             """
-            cur.execute(insert_confidential_sql, (user_id, hashed_password, secret_question, secret_answer))
+            cur.execute(insert_confidential_sql, (user_id, hashed_password, secret_question, hashed_secret_answer))
             
             # 5. Commit when both inserts succeed to ensure consistency.
             conn.commit()
@@ -1211,8 +1213,16 @@ def verify_secret_answer(email: str, answer: str) -> bool:
             if not stored_answer:
                 return False
 
-            # Compare both values case-insensitively after trimming whitespace
-            return answer.strip().lower() == stored_answer.strip().lower()
+            from argon2 import PasswordHasher
+            from argon2.exceptions import VerifyMismatchError
+            
+            ph = PasswordHasher()
+            try:
+                # Verify the provided answer against the stored hash
+                ph.verify(stored_answer, answer.strip().lower())
+                return True
+            except VerifyMismatchError:
+                return False
 
 
 def update_password(email: str, new_password: str) -> bool:
