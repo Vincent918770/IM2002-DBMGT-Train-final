@@ -20,10 +20,12 @@ import sys
 # Add the project root to the module search path so skeleton.config can be imported correctly
 sys.path.insert(0, ".")
 
-from neo4j import GraphDatabase
-from skeleton.config import NEO4J_URI, NEO4J_USER, NEO4J_PASSWORD
+# Third-party imports
+from neo4j import GraphDatabase  # Neo4j driver for database operations
+from skeleton.config import NEO4J_URI, NEO4J_USER, NEO4J_PASSWORD  # Database connection credentials
 
-# Data directory path pointing to train-mock-data
+# Data directory path pointing to train-mock-data folder containing JSON files
+# This path is constructed relative to the current script's location
 _DATA_DIR = os.path.normpath(
     os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "train-mock-data")
 )
@@ -190,55 +192,67 @@ def _extract_interchange_pairs_from_data(metro_stations: list[dict], rail_statio
 # ==========================================
 
 def seed():
+    """Main seeding function that populates the Neo4j database with transit network data.
+    
+    This function:
+    1. Loads station and link data from JSON files
+    2. Connects to Neo4j database
+    3. Clears existing graph data
+    4. Creates stations, links between stations, and interchange relationships
+    5. Prints progress updates
+    """
     # Load raw JSON data for both transit networks
     metro_stations = _load("metro_stations.json")
     rail_stations  = _load("national_rail_stations.json")
 
-    # Connect to Neo4j
+    # Connect to Neo4j using credentials from config
     driver = GraphDatabase.driver(NEO4J_URI, auth=(NEO4J_USER, NEO4J_PASSWORD))
     
     try:
         with driver.session() as session:
-            # Clear existing graph data to avoid duplicate nodes or relationships
+            # Step 1: Clear existing graph data to avoid duplicate nodes or relationships
             session.run("MATCH (n) DETACH DELETE n")
             print("  Cleared existing graph data")
             
-            # Create constraints to ensure performance and data correctness
+            # Step 2: Create constraints to ensure performance and data correctness
             _create_constraints(session)
 
-            # Create metro station nodes with IDs, names, lines, and interchange info
+            # Step 3: Create metro station nodes with IDs, names, lines, and interchange info
             for station in metro_stations:
                 _merge_metro_station(session, station)
             print(f"  Created {len(metro_stations)} metro stations")
 
-            # Create national rail station nodes with IDs, names, lines, and interchange info
+            # Step 4: Create national rail station nodes with IDs, names, lines, and interchange info
             for station in rail_stations:
                 _merge_rail_station(session, station)
             print(f"  Created {len(rail_stations)} national rail stations")
 
-            # Create adjacent links between metro stations
-            # Each station record includes adjacent_stations, which can generate the route relationships
+            # Step 5: Create adjacent links (edges) between metro stations
+            # Each station record includes adjacent_stations list, which defines the route graph
             metro_links_count = 0
             for station in metro_stations:
                 for adj in station.get("adjacent_stations", []):
                     to_id = adj.get("station_id")
+                    # Only create link if destination station exists
                     if to_id:
                         _merge_metro_link(session, station["station_id"], to_id, adj.get("line", "UNKNOWN"), adj.get("travel_time_min", 1))
                         metro_links_count += 1
             print(f"  Created {metro_links_count} metro links")
 
-            # Create adjacent links between national rail stations
+            # Step 6: Create adjacent links (edges) between national rail stations
+            # Similar process to metro links using national rail station data
             rail_links_count = 0
             for station in rail_stations:
                 for adj in station.get("adjacent_stations", []):
                     to_id = adj.get("station_id")
+                    # Only create link if destination station exists
                     if to_id:
                         _merge_rail_link(session, station["station_id"], to_id, adj.get("line", "UNKNOWN"), adj.get("travel_time_min", 1))
                         rail_links_count += 1
             print(f"  Created {rail_links_count} national rail links")
 
-            # Create interchange relationships between metro and national rail
-            # Interchange info is provided by related fields in metro_stations.json
+            # Step 7: Create interchange relationships between metro and national rail
+            # These allow passengers to transfer between networks at connected stations
             interchange_pairs = _extract_interchange_pairs_from_data(metro_stations, rail_stations)
             interchange_count = 0
             for metro_id, rail_id in interchange_pairs:
@@ -247,13 +261,15 @@ def seed():
             print(f"  Created {interchange_count} metro-national rail interchange pairs")
             
     finally:
-        # Use try-finally to ensure the connection is always closed
+        # Ensure database connection is always closed, even if an error occurs
         driver.close()
 
+    # Print completion message with instructions for accessing the graph
     print("\nNeo4j graph seeded successfully.")
     print("   Open http://localhost:7475 to explore the graph.")
 
 
+# Entry point: Run the seeding function if this script is executed directly
 if __name__ == "__main__":
     print("Connecting to Neo4j...")
     seed()
