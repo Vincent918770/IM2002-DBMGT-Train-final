@@ -287,12 +287,9 @@ TOOLS = [
         "name": "get_lost_item",
         "description": "Fetch the details and current status of a reported lost item using its item ID.",
         "parameters": {
-            "type": "object",
-            "properties": {
-                "item_id": {"type": "string", "description": "The unique ID of the lost item (e.g., 'LI001')"},
-            },
-            "required": ["item_id"],
+            "item_id": {"type": "string", "description": "The unique ID of the lost item (e.g., 'LI001')"},
         },
+        "required": ["item_id"],
     },
     # TASK 6 EXTENSION:
     # RATIONALE (Deterministic Database Hit & IDOR Security):
@@ -304,11 +301,8 @@ TOOLS = [
     {
         "name": "get_user_penalties",
         "description": "Retrieve all penalty fines or violations for the currently logged-in user. Call this if the user asks about their fines, tickets, or penalties.",
-        "parameters": {
-            "type": "object",
-            "properties": {},
-            "required": [],
-        },
+        "parameters": {},
+        "required": [],
     },
     {
         "name": "get_station_connections",
