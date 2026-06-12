@@ -50,10 +50,10 @@ def close_driver():
 def example_count_nodes() -> int:
     """Example: count all nodes currently in the graph."""
     # Example function: show how to use a Neo4j session for a simple query
-    with _driver() as driver:
-        with driver.session() as session:
-            result = session.run("MATCH (n) RETURN count(n) AS total")
-            return result.single()["total"]
+    driver = _get_driver()
+    with driver.session() as session:
+        result = session.run("MATCH (n) RETURN count(n) AS total")
+        return result.single()["total"]
 
 
 def _format_route(record, origin_id, destination_id, value_key, output_key):
